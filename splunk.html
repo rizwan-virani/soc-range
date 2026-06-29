@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Splunk Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+<style>
+  .spl-bar { width:100%; font-family:"IBM Plex Mono",monospace; font-size:15px; background:#0c1117; color:var(--cyan);
+    border:1px solid var(--line); border-radius:8px; padding:12px 14px; resize:vertical; min-height:54px; }
+  .res-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .res-table th { text-align:left; color:var(--ink-faint); border-bottom:1px solid var(--line); padding:6px 8px; position:sticky; top:0; background:var(--panel); }
+  .res-table td { border-bottom:1px solid rgba(255,255,255,.04); padding:5px 8px; vertical-align:top; }
+  .res-table td.raw { font-family:"IBM Plex Mono",monospace; color:var(--ink-dim); white-space:nowrap; max-width:640px; overflow:hidden; text-overflow:ellipsis; }
+  .bar { height:10px; background:var(--cyan); border-radius:3px; display:inline-block; vertical-align:middle; }
+  .fieldchip { cursor:pointer; }
+  .act-card { margin-bottom:10px; }
+  .act-card.solved { border-color:var(--green); }
+  .codeblock { font-family:"IBM Plex Mono",monospace; font-size:13px; background:#0c1117; border:1px solid var(--line);
+    border-radius:6px; padding:8px 10px; color:var(--ink-dim); white-space:pre-wrap; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="launch">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · SPLUNK LAB</small></div>
+    </a>
+    <button class="btn" id="orientBtn" type="button">Orientation</button>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+
+  <div class="hero" style="padding:14px 0 6px">
+    <h1 class="hud" style="font-size:clamp(24px,5vw,38px)">Search like a <span style="color:var(--cyan)">Power User.</span></h1>
+    <p>You arrive holding the Splunk Core Certified Power User credential. Put it to work. Write real SPL against a simulated <span class="mono">index=main</span> and solve fifteen graded hunts using search, fields, stats, timechart, top, rare, eval, where, dedup, sort, and lookups.</p>
+    <p id="dsInfo" style="color:var(--ink-faint);font-size:13px"></p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">SPL search</div>
+    <textarea id="spl" class="spl-bar" spellcheck="false">index=main EventID=4625 | stats count by src_ip | sort -count</textarea>
+    <div class="btnrow" style="margin-top:8px">
+      <button class="btn primary" id="run">Run search</button>
+      <button class="btn" id="clear">Clear</button>
+      <span id="resCount" class="mono" style="color:var(--ink-faint);font-size:13px;align-self:center"></span>
+    </div>
+    <p style="color:var(--ink-faint);font-size:12px;margin:8px 0 0">Tip: Ctrl+Enter runs the search. Supported: base search with field=value and AND/OR/NOT, then | search, where, eval, stats, timechart, top, rare, table, fields, rename, sort, dedup, head, tail, lookup.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-top:14px;align-items:start" id="workArea">
+    <div class="card" style="position:sticky;top:10px">
+      <div class="eyebrow">Interesting fields</div>
+      <div id="fields" style="margin-top:8px;font-size:13px"></div>
+    </div>
+    <div class="card" style="min-height:200px;overflow:auto">
+      <div class="eyebrow" id="resTitle">Results</div>
+      <div id="results" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="secthead" style="margin-top:26px">Graded activities</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <span class="chip on" id="progress">0 / 15 solved</span>
+    <span class="chip" id="xp">0 XP earned here</span>
+    <button class="btn" id="codeBtn" style="display:none">Get completion code</button>
+  </div>
+  <div id="acts"></div>
+
+  <div class="btnrow" style="margin-top:24px">
+    <a class="btn homebtn" href="index.html">Home</a>
+    <a class="btn" href="soc.html">Workstation</a>
+    <a class="btn" href="library.html?tab=playbooks">Playbooks</a>
+  </div>
+  <div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/log-engine.js"></script>
+<script src="js/spl.js"></script>
+<script src="js/state.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/splunk.data.js"></script>
+<script>
+(function () {
+  var SOC = self.SOC, SPL = SOC.spl;
+  var ds = SOC.splunkLab.build();
+  var rows = ds.rows;
+  function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+  document.getElementById("dsInfo").textContent = ds.count + " events · index=main · sourcetypes: WinEventLog:Security, cisco:asa, access_combined, linux:syslog, aws:cloudtrail · 20-minute window.";
+
+  // ---- precompute expected answers ----
+  ds.activities.forEach(function (act) {
+    var r = SPL.run(act.solution, rows);
+    var row = r.rows[act.answer.row];
+    act._expected = row ? row[act.answer.col] : "";
+  });
+
+  // ---- search runner ----
+  var SPLBOX = document.getElementById("spl");
+  function render(res) {
+    var title = document.getElementById("resTitle"), out = document.getElementById("results");
+    document.getElementById("resCount").textContent = res.error ? "" : (res.rows.length + " results");
+    if (res.error) { title.textContent = "Error"; out.innerHTML = '<p style="color:var(--amber);font-family:monospace;font-size:13px">' + esc(res.error) + "</p>"; return; }
+    if (!res.rows.length) { title.textContent = "Results"; out.innerHTML = '<p style="color:var(--ink-faint)">No matching events.</p>'; return; }
+    if (res.kind === "events") {
+      title.textContent = "Events";
+      var head = "<tr><th>_time</th><th>host</th><th>sourcetype</th><th>_raw</th></tr>";
+      var body = res.rows.slice(0, 200).map(function (r) {
+        return "<tr><td>" + esc(r._time) + "</td><td>" + esc(r.host) + "</td><td>" + esc(r.sourcetype) + '</td><td class="raw">' + esc(r._raw) + "</td></tr>";
+      }).join("");
+      out.innerHTML = '<table class="res-table">' + head + body + "</table>";
+    } else if (res.kind === "chart") {
+      title.textContent = "timechart";
+      var maxv = Math.max.apply(null, res.rows.map(function (r) { return Number(r.count) || 0; })) || 1;
+      out.innerHTML = '<table class="res-table"><tr><th>_time</th><th>count</th><th></th></tr>' +
+        res.rows.map(function (r) {
+          var w = Math.round((Number(r.count) || 0) / maxv * 160);
+          return "<tr><td>" + esc(r._time) + "</td><td>" + esc(r.count) + '</td><td><span class="bar" style="width:' + w + 'px"></span></td></tr>';
+        }).join("") + "</table>";
+    } else {
+      title.textContent = res.kind === "stats" ? "Statistics" : "Table";
+      var cols = res.columns.length ? res.columns : Object.keys(res.rows[0] || {});
+      var h = "<tr>" + cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr>";
+      var b = res.rows.slice(0, 200).map(function (r) {
+        return "<tr>" + cols.map(function (c) { return "<td>" + esc(r[c]) + "</td>"; }).join("") + "</tr>";
+      }).join("");
+      out.innerHTML = '<table class="res-table">' + h + b + "</table>";
+    }
+  }
+  function runNow() { render(SPL.run(SPLBOX.value, rows)); }
+  document.getElementById("run").addEventListener("click", runNow);
+  document.getElementById("clear").addEventListener("click", function () {
+    SPLBOX.value = "";
+    document.getElementById("results").innerHTML = "";
+    var rc = document.getElementById("resCount"); if (rc) rc.textContent = "";
+    SPLBOX.focus();
+  });
+  SPLBOX.addEventListener("keydown", function (e) { if (e.ctrlKey && e.key === "Enter") runNow(); });
+
+  // ---- interesting fields sidebar ----
+  function topVals(field, n) {
+    var c = {}; rows.forEach(function (r) { var v = r[field]; if (v != null && v !== "") c[v] = (c[v] || 0) + 1; });
+    return Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }).slice(0, n).map(function (k) { return { v: k, n: c[k] }; });
+  }
+  var FIELDS = ["sourcetype", "EventID", "action", "status", "host", "src_ip"];
+  document.getElementById("fields").innerHTML = FIELDS.map(function (f) {
+    var vals = topVals(f, 4);
+    if (!vals.length) return "";
+    return '<div style="margin-bottom:8px"><b class="hud" style="font-size:12px;color:var(--cyan)">' + esc(f) + "</b>" +
+      vals.map(function (x) {
+        return '<div class="fieldchip" data-q="' + esc(f) + "=" + esc(x.v) + '" style="display:flex;justify-content:space-between;color:var(--ink-dim);padding:2px 0"><span>' +
+          esc(x.v) + '</span><span style="color:var(--ink-faint)">' + x.n + "</span></div>";
+      }).join("") + "</div>";
+  }).join("");
+  document.getElementById("fields").addEventListener("click", function (e) {
+    var el = e.target.closest(".fieldchip"); if (!el) return;
+    var cur = SPLBOX.value.trim();
+    SPLBOX.value = (cur && cur !== "index=main" ? cur + " " : "index=main ") + el.getAttribute("data-q");
+    runNow();
+  });
+
+  // ---- activities ----
+  var SOLVED_KEY = "soc.splunk.v1";
+  function getSolved() { try { return JSON.parse(localStorage.getItem(SOLVED_KEY)) || {}; } catch (e) { return {}; } }
+  function setSolved(s) { try { localStorage.setItem(SOLVED_KEY, JSON.stringify(s)); } catch (e) {} }
+  function eqAns(a, b) {
+    if (a == null || b == null) return false;
+    var x = String(a).trim(), y = String(b).trim();
+    if (x.toLowerCase() === y.toLowerCase()) return true;
+    var nx = Number(x.replace(/,/g, "")), ny = Number(y.replace(/,/g, ""));
+    return !isNaN(nx) && !isNaN(ny) && nx === ny;
+  }
+  var solved = getSolved();
+
+  document.getElementById("acts").innerHTML = ds.activities.map(function (act, i) {
+    var done = !!solved[act.id];
+    return '<div class="card act-card' + (done ? " solved" : "") + '" id="card-' + act.id + '">' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">' +
+        '<b class="hud">' + (i + 1) + ". " + esc(act.prompt) + "</b>" +
+        '<span class="chip tactic" style="white-space:nowrap">' + act.points + " XP</span></div>" +
+      '<div style="margin-top:6px"><span class="chip">' + esc(act.concept) + "</span></div>" +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+        '<input class="search ansin" data-id="' + act.id + '" placeholder="Your answer" style="flex:1" ' + (done ? 'disabled value="' + esc(act._expected) + '"' : "") + " />" +
+        '<button class="btn primary chk" data-id="' + act.id + '"' + (done ? " disabled" : "") + ">Check</button></div>" +
+      '<div class="msg" data-id="' + act.id + '" style="font-size:13px;margin-top:6px;color:var(--ink-dim)">' + (done ? "Solved. " + esc(act.explain) : "") + "</div>" +
+      '<div style="margin-top:8px"><span class="chip hintbtn" data-id="' + act.id + '">Hint</span> ' +
+        '<span class="chip solbtn" data-id="' + act.id + '">Show solution SPL</span></div>' +
+      '<div class="sol" data-id="' + act.id + '" style="display:none"><div class="codeblock">' + esc(act.solution) + "</div>" +
+        '<button class="btn loadbtn" data-id="' + act.id + '" style="margin-top:6px">Load into search</button></div>' +
+      "</div>";
+  }).join("");
+
+  function byId(id) { for (var i = 0; i < ds.activities.length; i++) if (ds.activities[i].id === id) return ds.activities[i]; return null; }
+  function refreshProgress() {
+    var s = getSolved(), n = Object.keys(s).filter(function (k) { return s[k]; }).length;
+    document.getElementById("progress").textContent = n + " / " + ds.activities.length + " solved";
+    if (SOC.gam) { var g = SOC.gam.get(); document.getElementById("xp").textContent = (g.xp || 0) + " XP total"; }
+    document.getElementById("codeBtn").style.display = (n === ds.activities.length) ? "inline-block" : "none";
+  }
+
+  document.getElementById("acts").addEventListener("click", function (e) {
+    var t = e.target;
+    if (t.classList.contains("chk")) {
+      var id = t.getAttribute("data-id"), act = byId(id);
+      var inp = document.querySelector('.ansin[data-id="' + id + '"]');
+      var msg = document.querySelector('.msg[data-id="' + id + '"]');
+      if (eqAns(inp.value, act._expected)) {
+        var s = getSolved(); s[id] = true; setSolved(s);
+        if (SOC.gam) SOC.gam.captureFlag("splunk:" + id, act.points);
+        document.getElementById("card-" + id).classList.add("solved");
+        inp.disabled = true; t.disabled = true;
+        msg.style.color = "var(--green)"; msg.innerHTML = "Correct. " + esc(act.explain);
+        refreshProgress();
+      } else {
+        msg.style.color = "var(--amber)"; msg.textContent = "Not quite. Re-check your SPL and the field you are reading.";
+      }
+    } else if (t.classList.contains("hintbtn")) {
+      var id2 = t.getAttribute("data-id"), m2 = document.querySelector('.msg[data-id="' + id2 + '"]');
+      m2.style.color = "var(--ink-dim)"; m2.textContent = byId(id2).hint;
+    } else if (t.classList.contains("solbtn")) {
+      var sol = document.querySelector('.sol[data-id="' + t.getAttribute("data-id") + '"]');
+      sol.style.display = sol.style.display === "none" ? "block" : "none";
+    } else if (t.classList.contains("loadbtn")) {
+      SPLBOX.value = byId(t.getAttribute("data-id")).solution; runNow();
+      document.getElementById("workArea").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+
+  document.getElementById("codeBtn").addEventListener("click", function () {
+    var analyst = localStorage.getItem("soc.analyst") || "anon";
+    var pts = ds.activities.reduce(function (a, x) { return a + x.points; }, 0);
+    if (SOC.state && SOC.state.completionCode) {
+      SOC.state.completionCode("SPLUNK-LAB", analyst, pts).then(function (code) {
+        var m = document.getElementById("xp");
+        m.textContent = "Completion code: " + code;
+      });
+    }
+  });
+
+  if (SOC.gam) SOC.gam.touch();
+  refreshProgress();
+  runNow();
+})();
+</script>
+<script src="js/orient.js"></script>
+<script>
+/* Splunk Lab orientation. */
+(function () {
+  var SOC = self.SOC || {};
+  if (!SOC.orient) return;
+  var STEPS = [
+    { sel: null, title: "Splunk Lab", body: "You hold the Splunk Core Certified Power User credential, so put it to work. Write real SPL against a simulated index=main and solve fifteen graded hunts." },
+    { sel: "#spl", title: "1. The search bar", body: "Type real SPL here, then Run search or press Ctrl+Enter. A starter query is loaded. Supported commands include search, where, eval, stats, timechart, top, rare, dedup, sort, and lookup." },
+    { sel: "#fields", title: "2. Interesting fields", body: "This sidebar mirrors Splunk field discovery. Click any value to add it to your search as a field=value filter." },
+    { sel: "#results", title: "3. Read the results", body: "Results appear here as raw events, a statistics table, or a timechart, depending on the commands in your pipeline." },
+    { sel: "#acts", title: "4. Graded activities", body: "Each activity asks a hunting question. Type your answer and Check. Hint and Show solution SPL help if you are stuck, and Load into search drops the reference query into the bar." },
+    { sel: "#progress", title: "5. Track progress", body: "Your solved count tracks here. Solve all fifteen and a button appears to generate your completion code for Blackboard." },
+    { sel: null, title: "Hunt away", body: "Build the search, read the result, answer the question. Replay this anytime from the Orientation button up top." }
+  ];
+  SOC.orient.attach({ id: "lab.splunk", buttonId: "orientBtn", autoOnce: true, steps: STEPS });
+})();
+</script>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

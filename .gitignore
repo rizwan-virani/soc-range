@@ -1,0 +1,4 @@
+# Node tooling used only to generate build artifacts (Word templates, etc.).
+# The shipped site is static and needs none of this at runtime.
+node_modules/
+npm-debug.log*

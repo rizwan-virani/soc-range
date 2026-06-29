@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Analyst Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="launch">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · ANALYST PROFILE</small></div>
+    </a>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+
+  <div class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+    <div style="flex:1;min-width:220px">
+      <div class="eyebrow">Analyst</div>
+      <div class="hud" id="pName" style="font-size:27px"></div>
+      <div class="hud" id="pRank" style="font-size:18px;color:var(--cyan);margin-top:2px"></div>
+      <div class="scorebar" style="margin:10px 0 4px"><i id="pXpBar" style="width:0%"></i></div>
+      <div class="mono" id="pXpText" style="font-size:13px;color:var(--ink-dim)"></div>
+    </div>
+    <div class="grid3" style="flex:1;min-width:260px">
+      <div class="kpi"><div class="v" id="pStreak">0</div><div class="k">Day streak</div></div>
+      <div class="kpi alert"><div class="v" id="pScn">0</div><div class="k">Shifts done</div></div>
+      <div class="kpi"><div class="v" id="pFlags">0</div><div class="k">Flags</div></div>
+    </div>
+  </div>
+
+  <div class="secthead">Badges</div>
+  <div class="card"><div id="pBadges" class="grid4"></div></div>
+
+  <div class="secthead">Completed shifts</div>
+  <div class="card"><div id="pScnList"></div></div>
+
+  <div class="secthead">CySA+ readiness</div>
+  <div class="card"><div id="pCert"></div></div>
+
+  <div class="btnrow" style="margin-top:20px">
+    <a class="btn primary" href="soc.html">Run a shift</a>
+    <a class="btn" href="ctf.html">CTF Arena</a>
+    <a class="btn" href="certs.html">Cert readiness</a>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script src="js/ctf.data.js"></script>
+<script src="js/certs.data.js"></script>
+<script>
+(function () {
+  var G = self.SOC.gam, C = self.SOC.certs;
+  var p = G.touch();
+  var name = (localStorage.getItem("soc.analyst") || "anon").trim();
+  var rank = G.rankFor(p.xp), next = G.nextRank(p.xp);
+
+  document.getElementById("pName").textContent = name;
+  document.getElementById("pRank").textContent = rank.title;
+  document.getElementById("pStreak").textContent = p.streak.count || 0;
+  document.getElementById("pScn").textContent = Object.keys(p.scenarios).length;
+  document.getElementById("pFlags").textContent = p.flags.filter(function (f) { return f.indexOf("ctf-") === 0; }).length;
+
+  var floor = rank.at, ceil = next ? next.at : rank.at;
+  var pct = next ? Math.round((p.xp - floor) / (ceil - floor) * 100) : 100;
+  document.getElementById("pXpBar").style.width = pct + "%";
+  document.getElementById("pXpText").textContent = p.xp + " XP" + (next ? " · " + (ceil - p.xp) + " to " + next.title : " · max rank");
+
+  document.getElementById("pBadges").innerHTML = G.BADGES.map(function (b) {
+    var earned = p.badges.indexOf(b.id) >= 0;
+    return '<div class="kpi" style="text-align:center;opacity:' + (earned ? 1 : .35) + '">' +
+      '<div class="v" style="font-size:29px;color:' + (earned ? "var(--cyan)" : "var(--ink-faint)") + '">' + b.icon + "</div>" +
+      '<div class="k">' + b.name + "</div></div>";
+  }).join("");
+
+  var scnList = self.SOC.scenarios.byId;
+  var done = Object.keys(p.scenarios);
+  document.getElementById("pScnList").innerHTML = done.length ? done.map(function (id) {
+    var s = scnList[id];
+    return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)"><span>' +
+      (s ? s.title : id) + ' <span class="mono" style="color:var(--ink-faint);font-size:12px">' + id + "</span></span>" +
+      '<b class="hud" style="color:var(--cyan)">' + p.scenarios[id] + "%</b></div>";
+  }).join("") : '<span style="color:var(--ink-faint)">No shifts completed yet.</span>';
+
+  var R = C.readiness(p, self.SOC.scenarios.list, self.SOC.ctf);
+  document.getElementById("pCert").innerHTML =
+    '<div style="display:flex;align-items:baseline;gap:10px"><div class="hud" style="font-size:34px;color:var(--cyan)">' + R.overall + '%</div><span style="color:var(--ink-dim)">weighted CySA+ V4 readiness</span></div>' +
+    '<div class="scorebar" style="margin-top:6px"><i style="width:' + R.overall + '%"></i></div>' +
+    '<a class="btn" style="margin-top:12px;display:inline-block" href="certs.html">See domain breakdown</a>';
+})();
+</script>
+<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

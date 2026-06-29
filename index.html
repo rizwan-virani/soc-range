@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: CYBR 4350 Senior Project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="launch">
+  <div class="hero">
+    <div class="brand">
+      <div class="mark hud">S</div>
+      <div><b class="hud" style="font-size:17px">SOC RANGE</b><br /><small style="color:var(--ink-faint);letter-spacing:.18em;font-size:11px">CYBR 4350: SENIOR PROJECT · SAN JACINTO COLLEGE</small></div>
+    </div>
+    <h1 class="hud">Run the <span>shift.</span><br />Defend the network.</h1>
+    <p class="hud" style="color:var(--cyan);letter-spacing:.04em;margin:-6px 0 4px;font-size:17px">CYBR 4350: Senior Project</p>
+    <p>A browser-based Security Operations Center for hands-on training. Work realistic incidents across a live SIEM, a global threat map, incident response, and threat intelligence. Triage, contain, document, and deliver a post-mortem your CISO can brief. One hundred graded shift scenarios plus a 20-challenge Capture the Flag arena.</p>
+    <p style="color:var(--ink-faint);font-size:13px;margin-top:4px">Designed and authored by Professor Rizwan Virani, San Jacinto College.</p>
+
+    <div class="card" id="signinCard" style="max-width:520px;margin-top:22px">
+      <div class="eyebrow">Sign in for this shift</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input class="search" id="analyst" placeholder="Your name or student ID" style="flex:1" />
+        <button class="btn primary" id="saveName">Save</button>
+      </div>
+      <div id="nameSaved" style="color:var(--low);font-size:13px;margin-top:6px;min-height:16px"></div>
+      <p style="color:var(--ink-faint);font-size:12px;margin:4px 0 0">Your name is used to generate the Blackboard completion code when you finish a shift. Progress saves to this browser.</p>
+    </div>
+  </div>
+
+  <div class="howto">
+    <h2>New here? Start in three steps</h2>
+    <ol>
+      <li><b>Enter your name above and click Save.</b> It tags the completion codes you turn in to Blackboard.</li>
+      <li><b>Pick a scenario from a tier below.</b> Tier 1 is triage and the best place to begin. Tap a tier to open its list of shifts.</li>
+      <li><b>Work the incident on the workstation.</b> Read the brief, watch the live SIEM feed, investigate, follow the playbook, then submit your findings and the required deliverables.</li>
+    </ol>
+
+    <div class="isnot">
+      <div class="col is">
+        <h4>What this is</h4>
+        <ul>
+          <li>A hands-on SOC analyst trainer. You triage a live SIEM feed, work real incidents, and write the deliverables a working analyst produces.</li>
+          <li>Built for CYBR 4350. Every finished shift gives a completion code you turn in to Blackboard.</li>
+          <li>Self-paced and saved to this browser. Pick any tier, any time, and come back where you left off.</li>
+        </ul>
+      </div>
+      <div class="col isnot-col">
+        <h4>What this is not</h4>
+        <ul>
+          <li>Not a real network. Every host, log, and attacker is simulated for training. No live systems are touched.</li>
+          <li>Not a hacking tool. The focus is defense, detection, and response, not offense.</li>
+          <li>Not graded by clicks alone. The in-app work is step one of five. The written deliverables are the rest.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="howto-cta">
+      <button class="btn primary" id="tourBtn" type="button">Take the 60-second tour</button>
+      <span style="color:var(--ink-faint);font-size:13px">A quick guided walk around the platform.</span>
+    </div>
+
+    <p style="color:var(--ink-faint);font-size:13px;margin:12px 0 0">New to the tools? Warm up with the Detection Lab and the Live Response Simulator under Training modes, and track your standing on the Class Leaderboard.</p>
+  </div>
+
+  <div class="secthead">Training modes</div>
+  <div class="scn-grid" id="trainingGrid">
+    <a class="scn-card" href="detect.html"><span class="tier T2">SIGMA</span> <h3>Detection Engineering Lab</h3><div class="cats">Write Sigma rules · 10 graded activities · scored on recall and false positives</div></a>
+    <a class="scn-card" href="response.html"><span class="tier T3">LIVE</span> <h3>Live Response Simulator</h3><div class="cats">Branching incidents · decisions under a timer · slow response lets the attacker escalate</div></a>
+    <a class="scn-card" href="splunk.html"><span class="tier T3">SPL</span> <h3>Splunk Lab</h3><div class="cats">Write real SPL · 15 graded hunts · Power User prereq</div></a>
+    <a class="scn-card" href="ctf.html"><span class="tier T3">CTF</span> <h3>Capture the Flag Arena</h3><div class="cats">20 challenges · log, network, web, crypto, cloud, identity</div></a>
+    <a class="scn-card" href="certs.html"><span class="tier T2">CERT</span> <h3>CySA+ V4 Readiness</h3><div class="cats">Map your practice to CompTIA exam domains</div></a>
+    <a class="scn-card" href="profile.html"><span class="tier T1">RANK</span> <h3>Analyst Profile</h3><div class="cats">XP, rank, streak, badges, and progress</div></a>
+    <a class="scn-card" href="leaderboard.html"><span class="tier T1">COMP</span> <h3>Class Leaderboard</h3><div class="cats">Submit your XP and compete · podium, standings, and class stats</div></a>
+    <a class="scn-card" href="library.html"><span class="tier AE">DOCS</span> <h3>Reference Library</h3><div class="cats">Word templates, playbooks and SOPs, NIST publications</div></a>
+  </div>
+
+  <div class="secthead">Shift scenarios</div>
+  <p style="color:var(--ink-dim);margin:0 0 4px">One hundred graded incidents across four tiers. Tap a tier to open its scenarios. New analysts should start with Tier 1.</p>
+  <div id="tiers"></div>
+
+  <div class="secthead">Multi-screen</div>
+  <p style="color:var(--ink-dim)">For classroom displays, open the Analyst Workstation and use the panel rail to move between the four screens. For projector setups, run one screen per monitor by opening multiple browser windows at the same scenario.</p>
+  <div class="btnrow" style="margin-top:8px">
+    <a class="btn" href="instructor.html">Instructor console</a>
+  </div>
+
+  <p style="color:var(--ink-faint);font-size:12px;margin-top:40px">Simulated environment for training only. No real systems are involved. SOC Range for CYBR 4350: Senior Project. Designed and authored by Professor Rizwan Virani, San Jacinto College.</p>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script>
+(function () {
+  var S = self.SOC.scenarios;
+  var nameInput = document.getElementById("analyst");
+  nameInput.value = localStorage.getItem("soc.analyst") || "";
+  nameInput.addEventListener("input", function () { localStorage.setItem("soc.analyst", nameInput.value.trim()); });
+
+  function saveName() {
+    var n = nameInput.value.trim();
+    localStorage.setItem("soc.analyst", n);
+    var m = document.getElementById("nameSaved");
+    m.textContent = n ? ("Saved. Welcome, " + n + ". Pick a scenario to begin.") : "Name cleared.";
+  }
+  document.getElementById("saveName").addEventListener("click", saveName);
+  nameInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); saveName(); } });
+
+  var tiers = [
+    { key: "T1", label: "Tier 1 · Triage", sub: "Confirm or dismiss alerts quickly. The best place to start.", open: true },
+    { key: "T2", label: "Tier 2 · Incident Response", sub: "Contain and eradicate active intrusions.", open: false },
+    { key: "T3", label: "Tier 3 · Threat Hunting", sub: "Proactively hunt for adversaries already inside.", open: false },
+    { key: "AE", label: "Advanced and Emerging Threats", sub: "Cloud, identity, and AI-era attacks.", open: false },
+    { key: "GRC", label: "Governance, Risk and Compliance", sub: "Risk assessments, business impact, vendor and compliance work for the college. FERPA, GLBA, HECVAT, and HIPAA.", open: false }
+  ];
+  var root = document.getElementById("tiers");
+
+  tiers.forEach(function (t) {
+    var list = S.list.filter(function (s) { return s.tier === t.key; });
+    if (!list.length) return;
+
+    var tile = document.createElement("div");
+    tile.className = "tier-tile" + (t.open ? " open" : "");
+
+    var head = document.createElement("div");
+    head.className = "tier-tile-head";
+    head.innerHTML =
+      '<span class="badge ' + t.key + '">' + t.key + "</span>" +
+      '<span class="ttl">' + t.label + "</span>" +
+      '<span class="count">' + list.length + " shifts</span>" +
+      '<span class="chev">\u203A</span>';
+    head.addEventListener("click", function () {
+      var wasOpen = tile.classList.contains("open");
+      // Accordion: opening one tier collapses any other open tier.
+      root.querySelectorAll(".tier-tile.open").forEach(function (el) { el.classList.remove("open"); });
+      if (!wasOpen) {
+        tile.classList.add("open");
+        // Bring the opened tier's head to the top so its tiles start from the
+        // top of the view instead of leaving the user scrolled past them.
+        setTimeout(function () { if (tile.scrollIntoView) tile.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
+      }
+    });
+    tile.appendChild(head);
+
+    var body = document.createElement("div");
+    body.className = "tier-tile-body";
+    if (t.sub) { var sub = document.createElement("div"); sub.className = "tier-sub"; sub.style.padding = "0 0 12px"; sub.textContent = t.sub; body.appendChild(sub); }
+
+    var grid = document.createElement("div"); grid.className = "scn-grid"; grid.style.marginTop = "0";
+    list.forEach(function (s) {
+      var a = document.createElement("a");
+      a.className = "scn-card";
+      a.href = "soc.html?scenario=" + encodeURIComponent(s.id);
+      a.innerHTML =
+        '<span class="tier ' + s.tier + '">' + s.tier + "</span> " +
+        '<span style="color:var(--ink-faint);font-size:12px" class="mono">' + s.id + "</span>" +
+        "<h3>" + s.title + "</h3>" +
+        '<div class="cats">' + s.categories.join(" · ") + (s.estMinutes ? " · ~" + s.estMinutes + " min" : "") + "</div>" +
+        '<p style="color:var(--ink-dim);font-size:15px;margin:8px 0 0">' + s.briefing.subject + "</p>";
+      a.addEventListener("click", function () {
+        var n = nameInput.value.trim();
+        if (n) a.href = "soc.html?scenario=" + encodeURIComponent(s.id) + "&analyst=" + encodeURIComponent(n);
+      });
+      grid.appendChild(a);
+    });
+    body.appendChild(grid);
+    tile.appendChild(body);
+    root.appendChild(tile);
+  });
+})();
+</script>
+<script src="js/orient.js"></script>
+<script src="js/tour.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

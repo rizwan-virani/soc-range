@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Class Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+<style>
+  .lb-wrap { max-width: 980px; margin: 0 auto; padding: 26px 18px 90px; }
+  .lb-controls { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .lb-controls .fld { flex:1; min-width:150px; }
+  .lb-controls label { display:block; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
+  .lb-controls input { width:100%; padding:10px 12px; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; font-size:16px; }
+  .statstrip { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0; }
+  .statstrip .s { flex:1; min-width:120px; border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); }
+  .statstrip .s .v { font-family:var(--f-hud); font-size:29px; color:var(--cyan); }
+  .statstrip .s .k { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); }
+  .podium { display:flex; gap:12px; align-items:flex-end; justify-content:center; margin:18px 0 8px; }
+  .pod { flex:1; max-width:230px; border:1px solid var(--line); border-radius:12px; padding:14px; text-align:center; background:linear-gradient(180deg,var(--panel-2),var(--panel)); }
+  .pod.p1 { border-color:var(--cyan); box-shadow:var(--ring); }
+  .pod .medal { font-family:var(--f-hud); font-size:34px; }
+  .pod.p1 .medal { color:#f7c948; } .pod.p2 .medal { color:#c7d0d9; } .pod.p3 .medal { color:#cd7f32; }
+  .pod .h { font-family:var(--f-hud); font-size:18px; margin:6px 0 2px; word-break:break-word; }
+  .pod .xp { color:var(--cyan); font-family:var(--f-hud); }
+  .pod .sub { color:var(--ink-faint); font-size:12px; }
+  .pod.p1 { transform:translateY(-8px); }
+  .lb-table { width:100%; border-collapse:collapse; font-size:15px; }
+  .lb-table th { text-align:left; color:var(--ink-faint); border-bottom:1px solid var(--line); padding:8px 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+  .lb-table td { padding:9px 8px; border-bottom:1px solid rgba(127,127,127,.12); }
+  .lb-table tr.me { background:rgba(53,213,230,.10); }
+  .lb-table .num { font-family:var(--f-hud); color:var(--ink-dim); }
+  .lb-table .xp { font-family:var(--f-hud); color:var(--cyan); }
+  .banner { border:1px solid var(--med); background:rgba(247,201,72,.10); border-radius:10px; padding:12px 14px; font-size:15px; margin-bottom:14px; }
+  .status { font-size:15px; margin-top:8px; min-height:18px; }
+  .status.ok { color:var(--low); } .status.err { color:var(--crit); } .status.info { color:var(--ink-dim); }
+  @media (max-width:680px){ .podium{ flex-direction:column; align-items:stretch; } .pod.p1{ transform:none; } .pod{ max-width:none; } }
+</style>
+</head>
+<body>
+<header class="cmdbar">
+  <a class="brand" href="index.html" title="Back to launcher"><div class="mark hud">S</div>
+    <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT</small></div></a>
+  <span class="pagetag">Class Leaderboard</span>
+  <div class="cmd-spacer"></div>
+  <a class="btn homebtn" href="index.html">Home</a>
+</header>
+
+<div class="lb-wrap">
+  <div class="phead"><h1 class="hud">Class Leaderboard</h1>
+    <p>Submit your score to put yourself on the board. Your standing is based on total XP, with shifts, flags, and detections shown alongside.</p></div>
+
+  <div id="banner"></div>
+
+  <div class="card">
+    <div class="lb-controls">
+      <div class="fld"><label for="handle">Display name</label><input id="handle" placeholder="e.g. nightowl or J. Rivera" maxlength="24" /></div>
+      <div class="fld"><label for="section">Section (optional)</label><input id="section" placeholder="e.g. Fall-AM" maxlength="16" /></div>
+      <button class="btn primary" id="btnSubmit">Submit my score</button>
+      <button class="btn" id="btnRefresh">Refresh</button>
+    </div>
+    <div class="status info" id="status"></div>
+    <p style="color:var(--ink-faint);font-size:12px;margin:8px 0 0">Use a handle or first name plus last initial. Your standing comes from the XP saved in this browser, so finish your work here first, then submit.</p>
+  </div>
+
+  <div class="statstrip" id="stats"></div>
+  <div id="podium"></div>
+
+  <div class="card" style="margin-top:6px">
+    <div class="eyebrow" style="margin-bottom:8px">Full standings</div>
+    <div style="overflow-x:auto"><table class="lb-table" id="board"><tbody></tbody></table></div>
+    <p id="emptyNote" style="color:var(--ink-faint);font-size:15px;display:none">No scores yet. Be the first to submit.</p>
+  </div>
+
+  <p style="color:var(--ink-faint);font-size:12px;margin-top:26px;text-align:center">
+    SOC Range · CYBR 4350 Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College · Simulated data only
+  </p>
+</div>
+
+<script src="js/gamification.js"></script>
+<script src="js/leaderboard.js"></script>
+<script>
+(function () {
+  var SOC = self.SOC, LB = SOC.leaderboard;
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+  function setStatus(msg, kind) { var el = $("status"); el.className = "status " + (kind || "info"); el.textContent = msg || ""; }
+
+  // config banner
+  if (!LB.configured()) {
+    $("banner").innerHTML = '<div class="banner"><b>Local preview mode.</b> Scores are only on this device right now. ' +
+      'To turn on the shared class leaderboard, paste your Google Apps Script Web App URL into the CONFIG block at the top of <span class="mono">js/leaderboard.js</span>. Setup steps are in the README.</div>';
+  }
+
+  $("handle").value = LB.getHandle();
+  $("section").value = LB.getSection();
+
+  function shortDate(iso) { if (!iso) return ""; var d = new Date(iso); return isNaN(d) ? "" : (d.getMonth() + 1) + "/" + d.getDate(); }
+
+  function render(rows) {
+    var me = (LB.getHandle() || "").toLowerCase();
+    rows = LB.sortRows(rows || []);
+
+    // class stats
+    var players = rows.length;
+    var totalXp = rows.reduce(function (a, r) { return a + (r.xp || 0); }, 0);
+    var totalFlags = rows.reduce(function (a, r) { return a + (r.flags || 0); }, 0);
+    var topRank = rows.length ? rows[0].rank : "\u2014";
+    $("stats").innerHTML =
+      stat(players, "Players") + stat(totalXp.toLocaleString(), "Total XP") +
+      stat(totalFlags, "Flags captured") + stat(esc(topRank || "\u2014"), "Top rank");
+
+    // podium
+    var top3 = rows.slice(0, 3);
+    $("podium").innerHTML = top3.length ? '<div class="podium">' + top3.map(function (r, i) {
+      var cls = ["p1", "p2", "p3"][i], medal = ["1", "2", "3"][i];
+      return '<div class="pod ' + cls + '"><div class="medal">' + medal + "</div>" +
+        '<div class="h">' + esc(r.handle || "anon") + "</div>" +
+        '<div class="xp">' + (r.xp || 0).toLocaleString() + " XP</div>" +
+        '<div class="sub">' + esc(r.rank || "") + (r.section ? " \u00b7 " + esc(r.section) : "") + "</div></div>";
+    }).join("") + "</div>" : "";
+
+    // table
+    var tb = $("board").querySelector("tbody");
+    if (!rows.length) { tb.innerHTML = ""; $("emptyNote").style.display = "block"; return; }
+    $("emptyNote").style.display = "none";
+    tb.innerHTML = '<tr><th>#</th><th>Analyst</th><th>XP</th><th>Rank</th><th>Shifts</th><th>Flags</th><th>Detect</th><th>Section</th><th>Updated</th></tr>' +
+      rows.map(function (r, i) {
+        var mine = (r.handle || "").toLowerCase() === me;
+        return '<tr class="' + (mine ? "me" : "") + '"><td class="num">' + (i + 1) + "</td>" +
+          "<td>" + esc(r.handle || "anon") + (mine ? ' <span class="mono" style="color:var(--cyan);font-size:11px">you</span>' : "") + "</td>" +
+          '<td class="xp">' + (r.xp || 0).toLocaleString() + "</td>" +
+          "<td>" + esc(r.rank || "") + "</td><td>" + (r.scenarios || 0) + "</td><td>" + (r.flags || 0) + "</td><td>" + (r.detect || 0) + "</td>" +
+          "<td>" + esc(r.section || "") + "</td><td>" + shortDate(r.updated) + "</td></tr>";
+      }).join("");
+  }
+  function stat(v, k) { return '<div class="s"><div class="v">' + v + '</div><div class="k">' + k + "</div></div>"; }
+
+  function refresh() {
+    setStatus("Loading the board...", "info");
+    LB.fetchTop(100).then(function (res) {
+      render(res.rows);
+      setStatus(res.local ? "Local preview. Configure an endpoint to share across the class." : (res.fallback ? "Could not reach the server, showing the last local copy." : ""), res.local || res.fallback ? "info" : "ok");
+    });
+  }
+
+  $("btnSubmit").addEventListener("click", function () {
+    var h = $("handle").value.trim();
+    if (!h) { setStatus("Enter a display name first.", "err"); return; }
+    LB.setHandle(h); LB.setSection($("section").value.trim());
+    setStatus("Submitting...", "info");
+    LB.submit().then(function (res) {
+      if (res.ok) setStatus(res.local ? "Saved on this device." : "Submitted. You are on the board.", "ok");
+      else setStatus(res.error || "Submit failed.", res.network ? "info" : "err");
+      refresh();
+    });
+  });
+  $("btnRefresh").addEventListener("click", refresh);
+
+  if (SOC.gam) SOC.gam.touch();
+  refresh();
+})();
+</script>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

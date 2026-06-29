@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Reference Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="launch">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · REFERENCE LIBRARY</small></div>
+    </a>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+
+  <div class="hero" style="padding:14px 0 10px">
+    <h1 class="hud" style="font-size:clamp(24px,5vw,38px)">The <span style="color:var(--cyan)">library.</span></h1>
+    <p>Everything students need to produce real SOC deliverables: Word templates to fill out and turn in, an incident playbook and SOP for each activity, and the NIST publications behind it all.</p>
+  </div>
+
+  <div class="hud" style="font-size:16px;color:var(--ink);margin-top:22px;margin-bottom:6px">How to use this library</div>
+  <p style="color:var(--ink-dim);margin:0 0 12px">This library has three shelves. Click a tab below to switch between them. Download a template to write a deliverable, open a playbook for step-by-step response guidance, or jump to the NIST publications to cite the standards.</p>
+  <div id="libTabs" class="lib-tabs">
+    <button class="libtab on" data-tab="templates" type="button">Document templates<span class="sub">Word files you download, fill out, and turn in</span></button>
+    <button class="libtab" data-tab="playbooks" type="button">Playbooks and SOPs<span class="sub">Step-by-step response for each incident type</span></button>
+    <button class="libtab" data-tab="nist" type="button">NIST reference shelf<span class="sub">The standards to read and cite</span></button>
+  </div>
+
+  <div id="tab-templates"></div>
+  <div id="tab-playbooks" style="display:none"></div>
+  <div id="tab-nist" style="display:none"></div>
+
+  <div class="btnrow" style="margin-top:24px">
+    <a class="btn homebtn" href="index.html">Home</a>
+    <a class="btn" href="soc.html">Workstation</a>
+  </div>
+  <p style="color:var(--ink-faint);font-size:16px;margin-top:20px">NIST publications are U.S. government works in the public domain. Links open the official CSRC pages, which always show the current edition.</p>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/log-engine.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script src="js/library.data.js"></script>
+<script>
+(function () {
+  var L = self.SOC.library, S = self.SOC.scenarios;
+  function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+
+  // Templates
+  document.getElementById("tab-templates").innerHTML =
+    '<div class="secthead">Fill out and turn in</div>' +
+    '<p style="color:var(--ink-dim);margin:0 0 6px">Download, complete, and submit as your assignment. Each opens in Word, Google Docs, or Pages.</p>' +
+    '<p style="color:var(--ink-dim);margin:0 0 14px">Not sure what finished looks like? Open <b style="color:var(--ink)">View filled example</b> on any template to see a fully completed, acceptable version. That is the standard to aim for.</p>' +
+    '<div class="scn-grid">' + L.TEMPLATES.map(function (t) {
+      var hasEx = !!L.exampleFor(t.file);
+      return '<div class="scn-card"><span class="tier T2">' + esc(t.kind) + '</span>' +
+        '<h3>' + esc(t.name) + '</h3>' +
+        '<p style="color:var(--ink-dim);font-size:15px;margin:8px 0 12px">' + esc(t.desc) + '</p>' +
+        '<div class="btnrow">' +
+        '<a class="btn primary" href="library/templates/' + t.file + '" download>Download .docx</a>' +
+        (hasEx ? '<button class="btn" type="button" data-example="' + t.file + '">View filled example</button>' : '') +
+        '</div></div>';
+    }).join("") + '</div>';
+
+  // Worked-example modal: render a fully filled-out deliverable as a document.
+  var modal = document.createElement("div");
+  modal.className = "ex-modal";
+  modal.innerHTML = '<div class="ex-box"><div class="ex-head"><div class="meta">' +
+    '<span class="badge">Worked example · graded standard</span>' +
+    '<h2 id="exTitle"></h2><div class="scn" id="exScn"></div></div>' +
+    '<button class="ex-close" id="exClose" aria-label="Close">×</button></div>' +
+    '<div class="exdoc" id="exBody"></div></div>';
+  document.body.appendChild(modal);
+
+  function renderExample(ex, name) {
+    document.getElementById("exTitle").textContent = name;
+    document.getElementById("exScn").textContent = "Based on " + ex.scenario;
+    var out = ex.lede ? '<div class="lede">' + esc(ex.lede) + '</div>' : "";
+    ex.sections.forEach(function (s) {
+      if (s.h) out += "<h3>" + esc(s.h) + "</h3>";
+      if (s.p) s.p.forEach(function (para) { out += "<p>" + esc(para) + "</p>"; });
+      if (s.ul) out += "<ul>" + s.ul.map(function (li) { return "<li>" + esc(li) + "</li>"; }).join("") + "</ul>";
+      if (s.meta) {
+        out += '<table class="meta"><tbody>' + s.meta.map(function (pr) {
+          return "<tr><th>" + esc(pr[0]) + "</th><td>" + esc(pr[1]) + "</td></tr>";
+        }).join("") + "</tbody></table>";
+      }
+      if (s.table) {
+        out += "<table><thead><tr>" + s.table.headers.map(function (h) { return "<th>" + esc(h) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+          s.table.rows.map(function (r) {
+            return "<tr>" + r.map(function (c) { return "<td>" + esc(c) + "</td>"; }).join("") + "</tr>";
+          }).join("") + "</tbody></table>";
+      }
+    });
+    document.getElementById("exBody").innerHTML = out;
+  }
+
+  function openExample(file) {
+    var ex = L.exampleFor(file); if (!ex) return;
+    var t = null; for (var i = 0; i < L.TEMPLATES.length; i++) if (L.TEMPLATES[i].file === file) t = L.TEMPLATES[i];
+    renderExample(ex, t ? t.name : "Example");
+    modal.scrollTop = 0;
+    modal.classList.add("show");
+    document.getElementById("exClose").focus();
+  }
+  function closeExample() { modal.classList.remove("show"); }
+
+  document.getElementById("tab-templates").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-example]");
+    if (b) { e.preventDefault(); openExample(b.getAttribute("data-example")); }
+  });
+  document.getElementById("exClose").addEventListener("click", closeExample);
+  modal.addEventListener("click", function (e) { if (e.target === modal) closeExample(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && modal.classList.contains("show")) closeExample(); });
+
+  // Playbooks
+  function nistChips(ids) {
+    return ids.map(function (id) { var n = L.nistById(id); return n ? '<a class="chip" href="' + n.url + '" target="_blank" rel="noopener" style="color:var(--cyan)">' + esc(n.code) + '</a>' : ""; }).join(" ");
+  }
+  function scnChips(ids) {
+    return ids.map(function (sid) { var s = S.byId[sid]; return '<a class="chip tactic" href="soc.html?scenario=' + sid + '" style="cursor:pointer">' + esc(s ? s.title : sid) + '</a>'; }).join(" ");
+  }
+  document.getElementById("tab-playbooks").innerHTML =
+    '<div class="secthead">Standard operating procedures by incident type</div>' +
+    '<p style="color:var(--ink-dim);margin:0 0 14px">Each playbook follows the response lifecycle and links the scenarios it applies to and the NIST guidance behind it.</p>' +
+    L.PLAYBOOKS.map(function (pb) {
+      var phases = pb.phases.map(function (ph) {
+        return '<div style="margin-top:10px"><b class="hud" style="color:var(--cyan);font-size:15px;letter-spacing:.08em">' + esc(ph[0]).toUpperCase() + '</b>' +
+          '<ul style="margin:4px 0 0;padding-left:18px;color:var(--ink-dim);font-size:15px">' + ph[1].map(function (s) { return '<li>' + esc(s) + '</li>'; }).join("") + '</ul></div>';
+      }).join("");
+      return '<details class="card" id="pb-' + pb.id + '" style="margin-bottom:10px"><summary style="cursor:pointer;list-style:none">' +
+        '<b class="hud" style="font-size:18px">' + esc(pb.title) + '</b>' +
+        '<p style="color:var(--ink-dim);font-size:15px;margin:6px 0 0">' + esc(pb.summary) + '</p></summary>' +
+        '<div style="margin-top:10px">' + phases + '</div>' +
+        '<div class="eyebrow" style="margin-top:14px">Applies to</div><div style="margin-top:4px">' + scnChips(pb.appliesTo) + '</div>' +
+        '<div class="eyebrow" style="margin-top:10px">Supporting NIST guidance</div><div style="margin-top:4px">' + nistChips(pb.nist) + '</div>' +
+        '</details>';
+    }).join("");
+
+  // NIST
+  document.getElementById("tab-nist").innerHTML =
+    '<div class="secthead">NIST publications</div>' +
+    '<p style="color:var(--ink-dim);margin:0 0 14px">Risk assessment, incident response, the controls catalog, the framework, and the forensic and recovery guides. The standards a SOC and a senior project should cite.</p>' +
+    L.NIST.map(function (n) {
+      return '<a class="card" href="' + n.url + '" target="_blank" rel="noopener" style="display:block;margin-bottom:8px;text-decoration:none">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">' +
+        '<b class="hud" style="color:var(--cyan)">' + esc(n.code) + ' <span style="color:var(--ink);font-weight:400">' + esc(n.title) + '</span></b>' +
+        '<span class="mono" style="color:var(--ink-faint);font-size:12px">open \u2197</span></div>' +
+        '<p style="color:var(--ink-dim);font-size:15px;margin:6px 0 0">' + esc(n.desc) + '</p></a>';
+    }).join("");
+
+  // tab switching + deep links
+  function show(tab) {
+    ["templates","playbooks","nist"].forEach(function (t) {
+      document.getElementById("tab-" + t).style.display = (t === tab) ? "block" : "none";
+    });
+    document.querySelectorAll("#libTabs .libtab").forEach(function (c) { c.classList.toggle("on", c.getAttribute("data-tab") === tab); });
+  }
+  document.querySelectorAll("#libTabs .libtab").forEach(function (c) {
+    c.addEventListener("click", function () { show(c.getAttribute("data-tab")); });
+  });
+
+  var params = new URLSearchParams(location.search);
+  if (params.get("tab")) show(params.get("tab"));
+  var play = params.get("play");
+  if (play) {
+    show("playbooks");
+    var d = document.getElementById("pb-" + play);
+    if (d) { d.open = true; setTimeout(function () { if (d.scrollIntoView) d.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }
+  }
+})();
+</script>
+<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

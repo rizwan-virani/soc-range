@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: CYBR 4350 Workstation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="app">
+  <!-- Command bar -->
+  <header class="cmdbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div>
+        <b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT</small>
+      </div>
+    </a>
+    <div class="cmd-scn">
+      <span class="t" id="cmdScnTitle">No scenario loaded</span>
+      <span class="s" id="cmdScnSub">Select a shift from the launcher</span>
+    </div>
+    <div class="cmd-spacer"></div>
+    <div class="metric"><span class="v mono" id="mShift">00:00</span><span class="k">Shift Clock</span></div>
+    <div class="metric"><span class="v mono" id="mEvents">0</span><span class="k">Events</span></div>
+    <div class="metric amber"><span class="v mono" id="mAlerts">0</span><span class="k">Open Alerts</span></div>
+    <div class="metric crit"><span class="v mono" id="mCrit">0</span><span class="k">Critical</span></div>
+    <div class="metric"><span class="v mono" id="mScore">0</span><span class="k">Score</span></div>
+    <button class="btn ghost" id="btnHint" title="Hints cost points">Hint</button>
+    <button class="btn primary" id="btnSubmit">Submit Shift</button>
+  </header>
+
+  <div class="workspace">
+    <!-- Left rail -->
+    <nav class="rail" id="rail">
+      <div class="grp">
+        <div class="eyebrow" style="padding:4px 11px 8px">Operations</div>
+        <button class="navbtn active" data-panel="brief"><span class="ic">▣</span> Briefing</button>
+        <button class="navbtn" data-panel="siem"><span class="ic">≣</span> SIEM <span class="badge" id="bSiem" style="display:none">0</span></button>
+        <button class="navbtn" data-panel="net"><span class="ic">◈</span> Network</button>
+        <button class="navbtn" data-panel="inc"><span class="ic">⌧</span> Incidents <span class="badge" id="bInc" style="display:none">0</span></button>
+        <button class="navbtn" data-panel="intel"><span class="ic">⊛</span> Threat Intel</button>
+        <button class="navbtn" data-panel="report"><span class="ic">⎙</span> Report</button>
+      </div>
+      <div class="grp">
+        <div class="eyebrow" style="padding:4px 11px 8px">Reference</div>
+        <button class="navbtn" id="orientBtn"><span class="ic">◎</span> Orientation</button>
+        <button class="navbtn" data-panel="academy"><span class="ic">✦</span> Analyst Academy</button>
+        <a class="navbtn" href="index.html"><span class="ic">⟵</span> Launcher</a>
+      </div>
+    </nav>
+
+    <!-- Stage -->
+    <main class="stage" id="stage">
+      <section class="panel show" id="panel-brief"></section>
+      <section class="panel" id="panel-siem"></section>
+      <section class="panel" id="panel-net"></section>
+      <section class="panel" id="panel-inc"></section>
+      <section class="panel" id="panel-intel"></section>
+      <section class="panel" id="panel-report"></section>
+      <section class="panel" id="panel-academy"></section>
+    </main>
+  </div>
+
+  <!-- Ops strip -->
+  <footer class="opsstrip">
+    <span class="dot"></span><span id="opsState">SIMULATION ACTIVE</span>
+    <span>SIM CLOCK <b id="opsSim" class="mono">0s</b></span>
+    <span>FEED <b id="opsRate" class="mono">0/s</b></span>
+    <span>SEED <b id="opsSeed" class="mono">--</b></span>
+    <span style="margin-left:auto">ANALYST <b id="opsAnalyst" class="mono">--</b></span>
+  </footer>
+</div>
+
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="js/prng.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/log-engine.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script src="js/state.js"></script>
+<script src="js/intel.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/certs.data.js"></script>
+<script src="js/library.data.js"></script>
+<!-- Optional: enable the live LLM tutor by deploying proxy/cloudflare-worker.js
+     and uncommenting the next line with your worker URL. Without it, the tutor
+     runs in client-side guide mode, which needs no backend.
+<script>window.SOC_TUTOR_ENDPOINT = "https://soc-tutor.YOUR-NAME.workers.dev";</script>
+-->
+<script src="js/app.js"></script>
+<script src="js/orient.js"></script>
+<script>
+/* Per-shift orientation: shared engine + steps tailored to the loaded scenario. */
+(function () {
+  var SOC = self.SOC || {};
+  if (!SOC.orient || !SOC.scenarios) return;
+  var id = new URLSearchParams(location.search).get("scenario");
+  var scn = (id && SOC.scenarios.byId) ? SOC.scenarios.byId[id] : null;
+
+  var taskBody;
+  if (scn) {
+    var objs = (scn.briefing && scn.briefing.objectives) ? scn.briefing.objectives : [];
+    taskBody = "Your task: " + (scn.briefing ? scn.briefing.subject : scn.title) + ". " +
+      (objs.length ? "Objectives: " + objs.join("; ") + "." : "");
+  } else {
+    taskBody = "Each shift drops you into a live incident. Read the briefing, investigate the feed, work the playbook, then submit your findings and deliverables.";
+  }
+
+  var STEPS = [
+    { sel: null, title: scn ? ("Your shift: " + scn.title) : "How a shift works", body: taskBody },
+    { sel: '[data-panel="brief"]', title: "1. Start with the briefing", body: "The CISO briefing lays out the situation, your objectives, the MITRE tactics in scope, and the deliverables that are due. You are on it now. Read it first." },
+    { sel: '[data-panel="siem"]', title: "2. Watch the SIEM feed", body: "Open SIEM to see the live log stream. Click any line to pin it as evidence. Use the source filters and the search box to cut the noise down to what matters." },
+    { sel: '[data-panel="net"]', title: "3. Correlate the indicators", body: "Network shows where activity lights up. Threat Intel lists the IPs, hashes, and accounts. The same attacker appears across every screen, so cross-check what you find." },
+    { sel: '[data-panel="inc"]', title: "4. Work the incident", body: "Open Incidents to run the MITRE playbook one step at a time, and keep your findings in the analyst notebook as you go." },
+    { sel: '[data-panel="report"]', title: "5. Use the summary", body: "The Report screen auto-builds a summary of your findings. It is the starting point, not the deliverable. Copy it into the Word templates, add your screenshots and analysis, and complete the documents listed in the briefing." },
+    { sel: '#btnSubmit', title: "6. Submit the shift", body: "When you are done, Submit Shift scores your work and gives you the Blackboard completion code. Stuck? The Hint button helps, but it costs a few points." },
+    { sel: null, title: "Deliverables, not just clicks", body: "The in-app work is step one of five. You also download and fill out the Word templates for an incident report, a post-mortem, and an executive brief, and record a 3 to 5 minute video debrief attached as a file. Replay this anytime from the Orientation button in the left rail." }
+  ];
+
+  SOC.orient.attach({ id: "wk." + (id || "none"), buttonId: "orientBtn", autoOnce: true, steps: STEPS });
+})();
+</script>
+<script src="js/tutor.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

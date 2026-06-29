@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Live Response</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+<style>
+  .lr-wrap { max-width: 820px; margin: 0 auto; padding: 28px 18px 90px; }
+  .lr-card { background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .lr-pick { cursor:pointer; transition:border-color .15s, transform .15s; }
+  .lr-pick:hover { border-color:var(--cyan-dim); transform:translateY(-2px); }
+  .lr-feed { font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--ink-dim);
+    background:#0a1119; border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:10px 0; }
+  [data-theme="light"] .lr-feed { background:#f4f7fb; }
+  .lr-feed div { padding:2px 0; }
+  .opt-btn { display:block; width:100%; text-align:left; padding:13px 14px; margin:8px 0; border:1px solid var(--line);
+    background:var(--panel); color:var(--ink); border-radius:8px; cursor:pointer; font-size:16px; font-family:var(--f-ui); }
+  .opt-btn:hover { border-color:var(--cyan); background:rgba(53,213,230,.06); }
+  .timerbar { height:8px; background:var(--elev); border:1px solid var(--line); border-radius:6px; overflow:hidden; margin:6px 0 2px; }
+  .timerbar > i { display:block; height:100%; background:linear-gradient(90deg,var(--low),var(--med),var(--high)); transition:width 1s linear; }
+  .timer-t { font-family:var(--f-hud); font-size:13px; color:var(--ink-dim); }
+  .timer-t.urgent { color:var(--crit); }
+  .grade-badge { font-family:var(--f-hud); font-size:47px; }
+  .grade-A { color:var(--low); } .grade-B { color:var(--low); } .grade-C { color:var(--med); } .grade-D { color:var(--high); } .grade-F { color:var(--crit); }
+  .scoreline { color:var(--ink-dim); font-size:15px; }
+</style>
+</head>
+<body>
+<header class="cmdbar">
+  <a class="brand" href="index.html" title="Back to launcher"><div class="mark hud">S</div>
+    <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT</small></div></a>
+  <span class="pagetag">Live Response</span>
+  <div class="cmd-spacer"></div>
+  <button class="btn" id="orientBtn" type="button">Orientation</button>
+  <a class="btn homebtn" href="index.html" style="margin-left:8px">Home</a>
+</header>
+
+<div class="lr-wrap">
+  <div class="phead"><h1 class="hud">Live Response Simulator</h1>
+    <p>Real incidents do not wait. Make the call fast and correct. Hesitate, and the attacker escalates.</p></div>
+
+  <div id="screen"></div>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/log-engine.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script src="js/state.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/branch.data.js"></script>
+<script src="js/branch.js"></script>
+<script>
+(function () {
+  var SOC = self.SOC;
+  var screen = document.getElementById("screen");
+  var state = null, ticker = null;
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+
+  function menu() {
+    clearTimer();
+    var items = SOC.branch.list().map(function (b) {
+      return '<div class="lr-card lr-pick" data-id="' + b.id + '" style="margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+        '<b class="hud" style="font-size:17px">' + esc(b.title) + "</b>" +
+        '<span class="chip" style="cursor:default">' + esc(b.tier) + "</span></div>" +
+        '<p style="color:var(--ink-dim);margin:8px 0 0;font-size:15px">' + esc(b.intro) + "</p></div>";
+    }).join("");
+    screen.innerHTML = '<div class="eyebrow" style="margin-bottom:8px">Choose an incident</div>' + items +
+      '<p style="color:var(--ink-faint);font-size:13px;margin-top:14px">Each decision has a timer. If it runs out, the slow path is taken for you, and the incident gets worse.</p>';
+    Array.prototype.forEach.call(screen.querySelectorAll(".lr-pick"), function (el) {
+      el.addEventListener("click", function () { start(el.getAttribute("data-id")); });
+    });
+  }
+
+  function start(id) {
+    var tree = SOC.branch.byScenario(id);
+    state = { id: id, tree: tree, nodeId: tree.start, score: tree.base || 70 };
+    renderNode();
+  }
+
+  function clearTimer() { if (ticker) { clearInterval(ticker); ticker = null; } }
+
+  function renderNode() {
+    clearTimer();
+    var tree = state.tree, node = tree.nodes[state.nodeId];
+    var feed = node.feed ? '<div class="lr-feed">' + node.feed.map(function (f) { return "<div>" + esc(f) + "</div>"; }).join("") + "</div>" : "";
+    var opts = node.options.map(function (o) {
+      return '<button class="opt-btn" data-opt="' + o.id + '">' + esc(o.label) + "</button>";
+    }).join("");
+    var limit = node.timeLimit || 30;
+    screen.innerHTML =
+      '<div class="lr-card">' +
+        '<div class="timer-t" id="tlabel">Decide: ' + limit + "s</div>" +
+        '<div class="timerbar"><i id="tbar" style="width:100%"></i></div>' +
+        feed +
+        '<p style="font-size:17px;margin:10px 0 6px">' + esc(node.prompt) + "</p>" +
+        opts +
+      "</div>";
+    Array.prototype.forEach.call(screen.querySelectorAll(".opt-btn"), function (el) {
+      el.addEventListener("click", function () { choose(el.getAttribute("data-opt")); });
+    });
+    // countdown
+    var remaining = limit;
+    ticker = setInterval(function () {
+      remaining -= 1;
+      var bar = document.getElementById("tbar"), lab = document.getElementById("tlabel");
+      if (!bar) { clearTimer(); return; }
+      bar.style.width = Math.max(0, (remaining / limit) * 100) + "%";
+      lab.textContent = remaining > 0 ? "Decide: " + remaining + "s" : "Time up";
+      if (remaining <= 5) lab.classList.add("urgent");
+      if (remaining <= 0) { clearTimer(); choose(node.slow, true); }
+    }, 1000);
+  }
+
+  function choose(optId, timedOut) {
+    clearTimer();
+    var r = SOC.branch.resolve(state.tree, state.nodeId, optId);
+    if (!r) return;
+    state.score += r.delta;
+    var note = (timedOut ? "You hesitated. " : "") + (r.note || "");
+    if (r.isEnding) renderEnding(r.nextId, note);
+    else { state.nodeId = r.nextId; renderNode(); flash(note); }
+  }
+
+  function flash(msg) {
+    if (!msg) return;
+    var t = document.createElement("div"); t.className = "toast show"; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.classList.remove("show"); setTimeout(function () { t.remove(); }, 300); }, 2600);
+  }
+
+  function renderEnding(endId, note) {
+    clearTimer();
+    var ending = state.tree.endings[endId];
+    var g = SOC.branch.grade(state.score);
+    var xp = Math.max(0, state.score - 40);
+    if (SOC.gam) SOC.gam.captureFlag("response:" + state.id, xp);
+    screen.innerHTML =
+      '<div class="lr-card" style="text-align:center">' +
+        '<div class="eyebrow">Outcome</div>' +
+        '<div class="grade-badge grade-' + g + '">' + g + "</div>" +
+        '<h2 class="hud" style="margin:2px 0 8px">' + esc(ending.title) + "</h2>" +
+        (note ? '<p style="color:var(--ink-dim);font-size:15px">' + esc(note) + "</p>" : "") +
+        '<p style="margin:10px 0">' + esc(ending.text) + "</p>" +
+        '<div class="scoreline">Response score: ' + state.score + " \u00b7 +" + xp + " XP</div>" +
+        '<div class="btnrow" style="justify-content:center;margin-top:14px">' +
+          '<button class="btn primary" id="again">Play again</button>' +
+          '<button class="btn" id="back">Other incidents</button></div>' +
+      "</div>";
+    document.getElementById("again").addEventListener("click", function () { start(state.id); });
+    document.getElementById("back").addEventListener("click", menu);
+  }
+
+  if (SOC.gam) SOC.gam.touch();
+  menu();
+})();
+</script>
+<script src="js/orient.js"></script>
+<script>
+/* Live Response orientation. */
+(function () {
+  var SOC = self.SOC || {};
+  if (!SOC.orient) return;
+  var STEPS = [
+    { sel: null, title: "Live Response Simulator", body: "Multiple choice cannot test whether you can make the call under pressure. This puts you inside a live incident as a branching decision tree, scored as a letter grade." },
+    { sel: ".lr-pick", title: "1. Pick an incident", body: "Choose an incident to begin. There are four to start: double-extortion ransomware, MFA push fatigue, web defacement, and a CI/CD pipeline compromise." },
+    { sel: null, title: "2. Decide fast and well", body: "Every decision runs against a countdown timer shown at the top. Read the situation, weigh the options, and choose the right action quickly." },
+    { sel: null, title: "3. Hesitation escalates", body: "If the timer runs out, the slow path is taken for you and the attacker escalates. Ransomware spreads, the defacement reaches the press, the pipeline ships poisoned code." },
+    { sel: null, title: "Then you are graded", body: "The final screen shows your outcome as a letter grade with a short narrative and the XP you earned. Replay this anytime from the Orientation button up top." }
+  ];
+  SOC.orient.attach({ id: "lab.response", buttonId: "orientBtn", autoOnce: true, steps: STEPS });
+})();
+</script>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

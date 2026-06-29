@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: CTF Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="launch">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · CAPTURE THE FLAG ARENA</small></div>
+    </a>
+    <button class="btn" id="orientBtn" type="button">Orientation</button>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+
+  <div class="hero" style="padding:18px 0 22px">
+    <h1 class="hud" style="font-size:clamp(28px,5vw,44px)">Capture the <span style="color:var(--cyan)">flag.</span></h1>
+    <p>Twenty bite-sized challenges across log analysis, network forensics, web, crypto, malware triage, cloud, and identity. Each one mirrors a real analyst task. Flags use the format BVHN{...}.</p>
+    <div class="grid3" style="margin-top:16px;max-width:640px">
+      <div class="kpi"><div class="v" id="ctfFlags">0 / 20</div><div class="k">Flags captured</div></div>
+      <div class="kpi alert"><div class="v" id="ctfPoints">0</div><div class="k">Points</div></div>
+      <div class="kpi"><div class="v mono" id="ctfAnalyst" style="font-size:18px">anon</div><div class="k">Analyst</div></div>
+    </div>
+    <div class="scorebar" style="margin-top:12px;max-width:640px"><i id="ctfBar" style="width:0%"></i></div>
+    <div class="btnrow" style="margin-top:14px">
+      <button class="btn primary" id="ctfCode">Generate CTF code for Blackboard</button>
+      <a class="btn homebtn" href="index.html">Home</a>
+      <a class="btn" href="profile.html">My profile</a>
+    </div>
+  </div>
+
+  <div id="ctfFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0"></div>
+  <div class="scn-grid" id="ctfGrid"></div>
+</div>
+
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="js/prng.js"></script>
+<script src="js/state.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/ctf.data.js"></script>
+<script src="js/ctf.js"></script>
+<script src="js/orient.js"></script>
+<script>
+/* CTF Arena orientation. */
+(function () {
+  var SOC = self.SOC || {};
+  if (!SOC.orient) return;
+  var STEPS = [
+    { sel: null, title: "Capture the Flag Arena", body: "Twenty bite-sized challenges across log analysis, network forensics, web, crypto, malware triage, cloud, identity, and recon. Each one mirrors a real analyst task." },
+    { sel: "#ctfFilters", title: "1. Filter by category", body: "Use these to narrow the challenges to a category you want to practice, or show them all." },
+    { sel: "#ctfGrid", title: "2. Open a challenge", body: "Click any card to open its artifact and a flag box. Work the artifact, find the flag, and submit it. Flags always use the format BVHN{...}." },
+    { sel: "#ctfFlags", title: "3. Track your score", body: "Captured flags and points tally up here and feed your analyst profile and XP." },
+    { sel: "#ctfCode", title: "4. Get your code", body: "Generate a CTF completion code to paste into Blackboard whenever you want to submit your progress." },
+    { sel: null, title: "Go capture", body: "Pick a challenge, find the flag, submit. Replay this anytime from the Orientation button up top." }
+  ];
+  SOC.orient.attach({ id: "lab.ctf", buttonId: "orientBtn", autoOnce: true, steps: STEPS });
+})();
+</script>
+<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

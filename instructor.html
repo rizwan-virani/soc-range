@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Instructor Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="launch" style="max-width:880px">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · INSTRUCTOR CONSOLE</small></div>
+    </a>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+
+  <div class="card" id="gate">
+    <div class="eyebrow">Restricted</div>
+    <h2 class="hud" style="margin:4px 0 8px">Instructor passphrase</h2>
+    <p style="color:var(--ink-dim);font-size:15px">This gate is a courtesy barrier, not a security control. Anyone who reads the page source can bypass it. For real separation, host this page privately. Default passphrase is <b>ciso</b>.</p>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input class="search" id="pass" type="password" placeholder="passphrase" style="flex:1" />
+      <button class="btn primary" id="enter">Enter</button>
+    </div>
+  </div>
+
+  <div id="console" style="display:none">
+    <div class="secthead">Live inject console</div>
+    <div class="card">
+      <p style="color:var(--ink-dim);font-size:15px">Inject events into any student running the same scenario in another tab on this browser. Injects travel over a same-origin channel, so this drives students on the same machine or shared display. For distributed labs, the scenario already self-runs from its seed.</p>
+      <div class="grid2" style="margin-top:10px">
+        <div>
+          <div class="eyebrow">Scenario channel</div>
+          <select class="btn" id="injScn" style="width:100%;margin-top:6px"></select>
+        </div>
+        <div>
+          <div class="eyebrow">Inject</div>
+          <select class="btn" id="injType" style="width:100%;margin-top:6px"></select>
+        </div>
+      </div>
+      <div class="btnrow" style="margin-top:12px">
+        <button class="btn warn" id="fire">Launch inject</button>
+        <span id="injLog" style="color:var(--ink-dim);font-size:13px;align-self:center"></span>
+      </div>
+    </div>
+
+    <div class="secthead">Completion-code verifier</div>
+    <div class="card">
+      <p style="color:var(--ink-dim);font-size:15px">Paste a student code to confirm it matches their name, scenario, and score. Codes are signed with the course secret in state.js. Rotate that secret each term.</p>
+      <div class="grid2" style="margin-top:10px">
+        <div><div class="eyebrow">Scenario</div><select class="btn" id="vScn" style="width:100%;margin-top:6px"></select></div>
+        <div><div class="eyebrow">Student name or ID</div><input class="search" id="vName" placeholder="exact name used on shift" style="margin-top:6px;width:100%" /></div>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div><div class="eyebrow">Score percent</div><input class="search" id="vScore" placeholder="e.g. 88" style="margin-top:6px;width:100%" /></div>
+        <div><div class="eyebrow">Completion code</div><input class="search" id="vCode" placeholder="SC-XXXX-XXXX-XXXX" style="margin-top:6px;width:100%" /></div>
+      </div>
+      <div class="btnrow" style="margin-top:12px">
+        <button class="btn primary" id="verify">Verify code</button>
+        <span id="vResult" class="hud" style="align-self:center"></span>
+      </div>
+    </div>
+
+    <div class="btnrow" style="margin-top:20px"><a class="btn" href="index.html">Back to launcher</a></div>
+  </div>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script src="js/state.js"></script>
+<script>
+(function () {
+  var S = self.SOC.scenarios, ST = self.SOC.state;
+  var INJECTS = [
+    { template: "c2_beacon", label: "C2 beacon callback" },
+    { template: "ps_encoded", label: "Encoded PowerShell cradle" },
+    { template: "smb_lateral", label: "SMB lateral movement" },
+    { template: "exfil_https", label: "HTTPS data exfiltration", params: { mb: 200 } },
+    { template: "file_encrypt", label: "Ransomware file encryption" },
+    { template: "ct_public_bucket", label: "S3 bucket made public" },
+    { template: "aitm_token", label: "AiTM token replay sign-in" },
+    { template: "port_scan", label: "Port scan burst" }
+  ];
+
+  function fill(sel) {
+    S.list.forEach(function (s) {
+      var o = document.createElement("option"); o.value = s.id; o.textContent = s.id + " · " + s.title; sel.appendChild(o);
+    });
+  }
+  fill(document.getElementById("injScn"));
+  fill(document.getElementById("vScn"));
+  var it = document.getElementById("injType");
+  INJECTS.forEach(function (x, i) { var o = document.createElement("option"); o.value = i; o.textContent = x.label; it.appendChild(o); });
+
+  // gate
+  document.getElementById("enter").addEventListener("click", function () {
+    if (document.getElementById("pass").value.trim().toLowerCase() === "ciso") {
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("console").style.display = "";
+    } else { document.getElementById("pass").value = ""; document.getElementById("pass").placeholder = "wrong passphrase"; }
+  });
+
+  // inject
+  document.getElementById("fire").addEventListener("click", function () {
+    var scnId = document.getElementById("injScn").value;
+    var inj = INJECTS[+document.getElementById("injType").value];
+    if (typeof BroadcastChannel === "undefined") { document.getElementById("injLog").textContent = "BroadcastChannel not supported in this browser."; return; }
+    var ch = new BroadcastChannel("soc-range-" + scnId);
+    ch.postMessage({ kind: "inject_event", event: { template: inj.template, params: inj.params || {} }, delay: 0 });
+    ch.close();
+    document.getElementById("injLog").textContent = "Launched " + inj.label + " on " + scnId + " at " + new Date().toLocaleTimeString();
+  });
+
+  // verify
+  document.getElementById("verify").addEventListener("click", function () {
+    var scnId = document.getElementById("vScn").value;
+    var name = document.getElementById("vName").value;
+    var score = parseInt(document.getElementById("vScore").value, 10);
+    var code = document.getElementById("vCode").value;
+    var out = document.getElementById("vResult");
+    if (!name || isNaN(score) || !code) { out.textContent = "Fill every field."; out.style.color = "var(--amber)"; return; }
+    ST.verifyCode(scnId, name, score, code).then(function (ok) {
+      out.textContent = ok ? "VALID ✓" : "INVALID ✗";
+      out.style.color = ok ? "var(--low)" : "var(--crit)";
+    });
+  });
+})();
+</script>
+<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>

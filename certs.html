@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('soc.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SOC Range :: Certification Readiness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/soc.css" />
+</head>
+<body>
+<div class="launch">
+  <div class="topbar">
+    <a class="brand" href="index.html" title="Back to launcher">
+      <div class="mark hud">S</div>
+      <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · CERTIFICATION READINESS</small></div>
+    </a>
+    <a class="btn homebtn" href="index.html">Home</a>
+  </div>
+
+  <div class="hero" style="padding:18px 0 18px">
+    <h1 class="hud" style="font-size:clamp(26px,5vw,40px)">Aim at <span style="color:var(--cyan)">CySA+ V4</span></h1>
+    <p>This capstone maps to the CompTIA Cybersecurity Analyst (CySA+) V4 exam, code CS0-004, the bullseye certification for SOC analysts. Your work across shifts and CTF flags builds readiness in each exam domain. Foundation skills map to Security+ SY0-701.</p>
+  </div>
+
+  <div class="secthead">CompTIA pathway</div>
+  <div id="pathway" class="grid3"></div>
+
+  <div class="secthead">CySA+ V4 domain readiness</div>
+  <div class="card"><div id="overall"></div><div id="cysaDomains" style="margin-top:14px"></div></div>
+
+  <div class="secthead">Security+ foundation coverage</div>
+  <div class="card"><div id="secplusDomains"></div></div>
+
+  <div class="secthead">Exam facts and roles</div>
+  <div class="card">
+    <p style="color:var(--ink-dim);margin:0 0 8px">CySA+ V4 launched June 23, 2026. The exam has up to 85 multiple-choice and performance-based questions, runs 165 minutes, and is scored on a 100 to 900 scale with 750 to pass. The U.S. voucher is 425 dollars. It is approved under DoD Directive 8140.</p>
+    <div class="eyebrow">Mapped DoD Cyber Workforce roles</div>
+    <div id="dcwf" style="margin-top:6px"></div>
+    <div class="btnrow" style="margin-top:14px">
+      <a class="btn primary" href="https://www.comptia.org/en-us/certifications/cybersecurity-analyst/v4/" target="_blank" rel="noopener">Official CySA+ V4 objectives</a>
+      <a class="btn" href="index.html">Back to launcher</a>
+    </div>
+  </div>
+
+  <p style="color:var(--ink-faint);font-size:12px;margin-top:30px">Readiness is an in-app practice signal based on your shifts and flags. It is not a CompTIA score. Always confirm current objectives on CompTIA's site before you book.</p>
+</div>
+
+<script src="js/prng.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/scenarios.data.js"></script>
+<script src="js/ctf.data.js"></script>
+<script src="js/certs.data.js"></script>
+<script>
+(function () {
+  var C = self.SOC.certs, P = self.SOC.gam.get();
+  var scenarios = self.SOC.scenarios.list, ctf = self.SOC.ctf;
+  var R = C.readiness(P, scenarios, ctf);
+
+  function bar(pct, color) {
+    return '<div class="scorebar" style="margin:4px 0 2px"><i style="width:' + pct + '%' + (color ? ';background:' + color : '') + '"></i></div>';
+  }
+
+  // pathway
+  document.getElementById("pathway").innerHTML = C.PATHWAY.map(function (s, i) {
+    var here = s.id === "cysa";
+    return '<div class="card"' + (here ? ' style="border-color:var(--cyan)"' : "") + '>' +
+      '<div class="eyebrow">Step ' + (i + 1) + "</div>" +
+      '<h3 class="hud" style="margin:4px 0;font-size:20px' + (here ? ";color:var(--cyan)" : "") + '">' + s.name + "</h3>" +
+      '<div class="mono" style="color:var(--ink-faint);font-size:13px">' + s.code + "</div>" +
+      '<div style="color:var(--ink-dim);font-size:13px;margin-top:6px">' + s.note + "</div></div>";
+  }).join("");
+
+  // overall
+  document.getElementById("overall").innerHTML =
+    '<div style="display:flex;align-items:baseline;gap:12px"><div class="hud" style="font-size:47px;color:var(--cyan)">' + R.overall + '%</div>' +
+    '<div style="color:var(--ink-dim)">weighted CySA+ V4 readiness across your practice</div></div>' + bar(R.overall);
+
+  // cysa domains
+  document.getElementById("cysaDomains").innerHTML = C.CYSA.domains.map(function (d) {
+    var r = R[d.id];
+    return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between"><b class="hud">' + d.name +
+      ' <span style="color:var(--ink-faint);font-weight:400">· ' + d.weight + '% of exam</span></b><span class="mono">' + r.pct + '% · ' + r.done + "/" + r.total + " items</span></div>" +
+      bar(r.pct) + "</div>";
+  }).join("");
+
+  // security+ coverage (count of scenarios touching each domain)
+  var secCount = {};
+  C.SECPLUS.domains.forEach(function (d) { secCount[d.id] = 0; });
+  scenarios.forEach(function (s) { C.scenarioSecplus(s.id).forEach(function (d) { secCount[d] += 1; }); });
+  var maxc = Math.max.apply(null, Object.keys(secCount).map(function (k) { return secCount[k]; })) || 1;
+  document.getElementById("secplusDomains").innerHTML = C.SECPLUS.domains.map(function (d) {
+    var pct = Math.round(secCount[d.id] / maxc * 100);
+    return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span>' + d.name +
+      ' <span style="color:var(--ink-faint)">· ' + d.weight + '%</span></span><span class="mono">' + secCount[d.id] + " scenarios</span></div>" +
+      bar(pct, "var(--amber)") + "</div>";
+  }).join("");
+
+  document.getElementById("dcwf").innerHTML = C.DCWF.map(function (r) { return '<span class="chip tactic" style="cursor:default">' + r + "</span>"; }).join(" ");
+})();
+</script>
+<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>
+<script src="js/theme.js"></script>
+<script src="js/legal.js"></script>
+</body>
+</html>
