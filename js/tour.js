@@ -21,9 +21,9 @@
     { sel: "#tiers",
       title: "3. Run a graded shift",
       body: "The main event. One hundred incidents across four tiers. Tap a tier to open its shifts. Tier 1 is triage and the best place to begin. Each shift opens the analyst workstation with a CISO briefing." },
-    { sel: "#trainingGrid a[href=\"library.html\"]",
+    { sel: "#dp-ref",
       title: "Deliverables and worked examples",
-      body: "Every shift asks for written deliverables. The Reference Library holds the Word templates, the playbooks, and a fully filled-out example of each deliverable so you can see the standard you are aiming for." },
+      body: "Every shift asks for written deliverables. The Reference, profile and tools section holds the Word templates, the playbooks, a worked example of each deliverable, your analyst profile, and the instructor console." },
     { sel: null,
       title: "One thing this is not",
       body: "It is not a real network and not a hacking tool. Everything is simulated for defensive training. The in-app work is step one of five. The written report, post-mortem, executive brief, and video debrief are the rest. You are ready. Pick a Tier 1 shift and start." }
