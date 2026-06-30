@@ -2,3 +2,6 @@
 # The shipped site is static and needs none of this at runtime.
 node_modules/
 npm-debug.log*
+
+# Local editor / dev-server config (machine-specific paths). Not part of the site.
+.claude/
