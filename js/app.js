@@ -55,6 +55,18 @@
   SOC.logEngine && SOC.logEngine.SOURCES && SOC.logEngine.SOURCES.forEach(function (s) { filters.sources[s] = true; });
 
   var state = scn ? (ST.load(analyst || "anon", scn.id) || ST.freshState(analyst || "anon", scn)) : null;
+  // Backfill fields for shifts saved before the Phase 1 investigation mechanics.
+  if (state) {
+    if (!state.iocsFound) state.iocsFound = [];
+    if (!state.findings) state.findings = {};
+    if (state.intelRevealed == null) state.intelRevealed = false;
+  }
+  // Distinct attacker behaviors (by MITRE/source) that have streamed past, used
+  // to grade evidence pinning on recall and precision rather than "any pin".
+  var keySigs = {};
+  function sigOf(l) { return l.mitre || (l.source + ":" + l.severity); }
+  function isKeyEvidence(l) { return l.origin === "scenario" && (l.truthLabel === "malicious" || l.truthLabel === "suspicious"); }
+  function norm(s) { return String(s == null ? "" : s).trim().toLowerCase(); }
 
   // ---------- boot ----------
   if (!scn) { bootEmpty(); }
@@ -76,7 +88,7 @@
     document.title = "SOC Range :: " + scn.title;
 
     renderBrief(); renderSiem(); renderNet(); renderInc(); renderIntel(); renderReport(); renderAcademy();
-    wireNav(); wireButtons();
+    wireNav(); wireButtons(); updateObjTrack();
 
     startWorker();
     setInterval(tickClock, 1000);
@@ -123,6 +135,7 @@
     metrics.events += 1;
     if (log.severity === "critical") metrics.crit += 1;
     if (log.origin === "scenario" && (log.severity === "high" || log.severity === "critical")) raiseAlert(log);
+    if (isKeyEvidence(log)) keySigs[sigOf(log)] = true;
   }
 
   function raiseAlert(log) {
@@ -173,6 +186,7 @@
       '<div class="phead"><h1>Shift Briefing</h1><p>' + esc(scn.id) + " · Severity " +
       '<span class="txt-' + scn.severity + '">' + scn.severity.toUpperCase() + "</span>" +
       (scn.estMinutes ? ' · Est. time ~' + scn.estMinutes + " min" : "") + "</p></div>" +
+      '<div class="card" style="border-color:var(--cyan-dim)"><div id="objTrack"></div></div>' +
       '<div class="card brief">' +
         '<div class="from">From: ' + esc(b.from) + (isGrc ? " · San Jacinto College GRC" : " · BVHN Security") + "</div>" +
         "<h2 class='hud' style='margin:6px 0 0'>" + esc(b.subject) + "</h2>" +
@@ -244,6 +258,99 @@
       '<div class="btnrow">' + sop +
       '<a class="btn" href="library.html?tab=templates" target="_blank" rel="noopener">Document templates</a>' +
       '<a class="btn" href="library.html?tab=nist" target="_blank" rel="noopener">NIST publications</a></div></div>';
+  }
+
+  // ---------- INVESTIGATION MECHANICS (Phase 1) ----------
+  // The indicators a student should be able to find: the scenario IOCs and the
+  // answer-key expected IOCs, resolved to their real values and deduped.
+  function acceptableIOCs() {
+    var seen = {}, out = [];
+    function add(ref, type) {
+      var v = R(ref); if (v == null) return;
+      var k = norm(v); if (!k || seen[k]) return; seen[k] = true;
+      out.push({ val: String(v), type: type || "indicator" });
+    }
+    (scn.iocs || []).forEach(function (i) { add(i.ref, i.type); });
+    ((scn.answerKey && scn.answerKey.expectedIOCs) || []).forEach(function (ref) { add(ref, "indicator"); });
+    return out;
+  }
+  function acceptableSet() { var s = {}; acceptableIOCs().forEach(function (o) { s[norm(o.val)] = true; }); return s; }
+  function iocProgress() {
+    var set = acceptableSet(), found = {};
+    (state.iocsFound || []).forEach(function (v) { if (set[norm(v)]) found[norm(v)] = true; });
+    return { found: Object.keys(found).length, total: Object.keys(set).length };
+  }
+  function evidenceProgress() {
+    var pinned = {};
+    (state.pinned || []).forEach(function (id) { var d = (state.pinnedData || {})[id]; if (d && d.key) pinned[d.sig] = true; });
+    return { pinnedSigs: Object.keys(pinned).length, totalSigs: Object.keys(keySigs).length };
+  }
+  function playbookProgress() {
+    var total = 0, ans = 0;
+    ((scn.playbook && scn.playbook.phases) || []).forEach(function (ph) { ph.steps.forEach(function (s) { total++; if (state.playbook[s.id] != null) ans++; }); });
+    return { ans: ans, total: total };
+  }
+
+  // Deterministic shuffle so option order is stable per scenario but not sorted.
+  function shuffleBy(arr, seed) {
+    var rng = SOC.prng.makeRng("shuf:" + seed);
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = rng.int(0, i); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  var CONTAIN_DISTRACTORS = [
+    "Pay the attacker to make the problem go away",
+    "Power the host off immediately and lose the volatile evidence",
+    "Email all staff to announce the breach before it is contained",
+    "Take no action and keep monitoring indefinitely",
+    "Wipe and rebuild before scoping what was accessed"
+  ];
+  var RC_DISTRACTORS = [
+    "A routine maintenance task with no security impact",
+    "A false positive; there was no real incident here",
+    "Normal user behavior that was misread as an attack"
+  ];
+  function containmentOptions() {
+    var correct = (scn.answerKey && scn.answerKey.containment) || [];
+    var opts = correct.map(function (c) { return { label: c, correct: true }; });
+    for (var i = 0; i < CONTAIN_DISTRACTORS.length && opts.length < correct.length + 3; i++) opts.push({ label: CONTAIN_DISTRACTORS[i], correct: false });
+    return shuffleBy(opts, scn.id + "|contain");
+  }
+  function rootCauseOptions() {
+    var rc = (scn.answerKey && scn.answerKey.rootCause) || "Root cause not recorded.";
+    var opts = [{ label: rc, correct: true }];
+    RC_DISTRACTORS.forEach(function (d) { opts.push({ label: d, correct: false }); });
+    return shuffleBy(opts, scn.id + "|rc");
+  }
+
+  // Live objective tracker rendered on the Briefing panel.
+  function task(done, label, sub, go) { return { done: !!done, label: label, sub: sub, go: go }; }
+  function updateObjTrack() {
+    var box = $("objTrack"); if (!box) return;
+    var items = [];
+    if (!isGrc) {
+      var ev = evidenceProgress();
+      items.push(task(ev.totalSigs > 0 && ev.pinnedSigs >= ev.totalSigs, "Pin the key evidence",
+        ev.totalSigs ? (ev.pinnedSigs + " of " + ev.totalSigs + " attacker behaviors flagged") : "watch the SIEM feed for malicious activity", "siem"));
+      if (acceptableIOCs().length) {
+        var ic = iocProgress();
+        items.push(task(ic.total > 0 && ic.found >= ic.total, "Identify the indicators",
+          ic.found + " of " + ic.total + " confirmed indicators found", "intel"));
+      }
+    }
+    var pb = playbookProgress();
+    items.push(task(pb.total > 0 && pb.ans >= pb.total, isGrc ? "Work the assessment steps" : "Work the response playbook",
+      pb.ans + " of " + pb.total + " steps answered", "inc"));
+    items.push(task(state.status === "submitted", "Submit findings and assessment",
+      state.status === "submitted" ? "scored " + (state.score || 0) + "%" : "containment, root cause, and the graded questions", "report"));
+    var doneCt = items.filter(function (i) { return i.done; }).length;
+    box.innerHTML = '<div class="eyebrow">Objectives this shift · ' + doneCt + " of " + items.length + ' complete</div>' +
+      '<div class="objtrack">' + items.map(function (i) {
+        return '<button class="objrow' + (i.done ? " done" : "") + '" data-goto="' + i.go + '" type="button">' +
+          '<span class="ob">' + (i.done ? "✓" : "○") + '</span>' +
+          '<span class="ol"><b>' + esc(i.label) + "</b><span class=\"os\">" + esc(i.sub) + "</span></span>" +
+          '<span class="oa">Open ›</span></button>';
+      }).join("") + "</div>";
   }
 
   // ---------- SIEM ----------
@@ -381,12 +488,13 @@
     if (i >= 0) state.pinned.splice(i, 1);
     else { state.pinned.push(l.id); state.pinnedData = state.pinnedData || {}; }
     state.pinnedData = state.pinnedData || {};
-    state.pinnedData[l.id] = { msg: l.msg, raw: l.raw, mitre: l.mitre, sev: l.severity };
+    state.pinnedData[l.id] = { msg: l.msg, raw: l.raw, mitre: l.mitre, sev: l.severity, key: isKeyEvidence(l), sig: sigOf(l) };
     persist();
     // Update just the clicked row so pinning never scrolls or rebuilds the feed.
     if (rowEl) rowEl.classList.toggle("pinned", isPinned(l.id));
     else paintLogs(true);
     paintPins();
+    updateObjTrack();
   }
   function paintPins() {
     var box = $("pinList"); if (!box) return;
@@ -563,7 +671,7 @@
       b.addEventListener("click", function () {
         state.playbook[step.id] = oi; persist();
         recordTimeline("Playbook " + step.id + ": chose option " + (oi + 1));
-        paintTickets();
+        paintTickets(); updateObjTrack();
       });
       wrap.appendChild(b);
     });
@@ -574,19 +682,68 @@
 
   // ---------- THREAT INTEL ----------
   function renderIntel() {
-    var cards = (scn.iocs || []).map(function (i) {
-      var m = i.mitre && MITRE[i.mitre] ? MITRE[i.mitre].name + " (" + i.mitre + ")" : "";
-      return '<div class="ioc"><div class="top"><span class="type">' + esc(i.type) + '</span>' +
-        '<span class="rep ' + i.reputation + '">' + i.reputation + "</span></div>" +
-        '<div class="val">' + esc(R(i.ref)) + "</div>" +
-        '<div style="color:var(--ink-dim);font-size:13px">' + esc(i.note) + "</div>" +
-        (m ? '<div style="color:var(--amber);font-size:12px;margin-top:5px">⊙ ' + esc(m) + "</div>" : "") + "</div>";
-    }).join("");
+    // GRC assessments have no live indicators to hunt.
+    if (isGrc || !acceptableIOCs().length) {
+      $("panel-intel").innerHTML =
+        '<div class="phead"><h1>Threat Intelligence</h1><p>No indicator hunt on this shift</p></div>' +
+        '<div class="card"><p style="color:var(--ink-dim)">This shift does not center on network indicators. Work the assessment on the Incident screen and build your write-up on the Report screen.</p></div>';
+      return;
+    }
+    var prog = iocProgress(), set = acceptableSet();
+    var listHtml = (state.iocsFound || []).length
+      ? (state.iocsFound).map(function (v) {
+          var ok = set[norm(v)];
+          return '<div class="iocfound ' + (ok ? "ok" : "unk") + '"><span class="mono">' + esc(v) + "</span><span>" + (ok ? "✓ confirmed indicator" : "? not a known indicator") + "</span></div>";
+        }).join("")
+      : '<div style="color:var(--ink-faint);font-size:13px">No indicators added yet. Read the SIEM and the alerts, then log what you find.</div>';
+
+    var intelHtml = "";
+    if (state.intelRevealed) {
+      intelHtml = '<div class="secthead" style="margin-top:18px">Confirmed intelligence</div>' +
+        '<div class="grid3" style="margin-top:10px">' + (scn.iocs || []).map(function (i) {
+          var m = i.mitre && MITRE[i.mitre] ? MITRE[i.mitre].name + " (" + i.mitre + ")" : "";
+          return '<div class="ioc clickable" data-ioc="' + esc(R(i.ref)) + '"><div class="top"><span class="type">' + esc(i.type) + '</span>' +
+            '<span class="rep ' + i.reputation + '">' + i.reputation + "</span></div>" +
+            '<div class="val">' + esc(R(i.ref)) + "</div>" +
+            '<div style="color:var(--ink-dim);font-size:13px">' + esc(i.note) + "</div>" +
+            (m ? '<div style="color:var(--amber);font-size:12px;margin-top:5px">⊙ ' + esc(m) + "</div>" : "") +
+            '<div class="mono" style="color:var(--cyan);font-size:11px;margin-top:6px">click to find in the SIEM ›</div></div>';
+        }).join("") + "</div>";
+    }
+
     $("panel-intel").innerHTML =
-      '<div class="phead"><h1>Threat Intelligence</h1><p>Indicators correlated to this scenario · these match the SIEM and Network screens exactly</p></div>' +
-      '<div class="grid3">' + (cards || '<div class="card">No indicators yet.</div>') + "</div>" +
-      '<div class="card" style="margin-top:14px"><div class="eyebrow">Why these correlate</div>' +
-      '<p style="color:var(--ink-dim)">Every screen derives indicators from the same scenario seed. The attacker IP you see in the SIEM is the same IP on the threat map and here in the feed. Follow one indicator across all three to build your scope.</p></div>';
+      '<div class="phead"><h1>Threat Intelligence</h1><p>Hunt the indicators yourself, then log the malicious IPs, domains, hashes, and accounts you confirm</p></div>' +
+      '<div class="card"><div class="eyebrow">Your indicator list · ' + prog.found + " of " + prog.total + ' confirmed indicators found</div>' +
+        '<p style="color:var(--ink-dim);font-size:14px;margin:4px 0 10px">Read the SIEM feed, the correlated alerts, and the network flows. When you spot a malicious IP, domain, file hash, or account, add it here. Confirmed indicators count toward your score.</p>' +
+        '<div style="display:flex;gap:8px"><input class="search" id="iocInput" placeholder="e.g. 203.0.113.66 or files-x.dropzone-cloud.io" style="flex:1" /><button class="btn primary" id="iocAdd" type="button">Add indicator</button></div>' +
+        '<div style="display:grid;gap:6px;margin-top:12px">' + listHtml + "</div></div>" +
+      '<div class="btnrow" style="margin-top:12px">' +
+        (state.intelRevealed ? "" : '<button class="btn" id="revealIntel" type="button">Reveal confirmed intel (−5 points)</button>') +
+        '<button class="btn ghost" data-goto="siem" type="button">Back to the SIEM feed</button></div>' +
+      intelHtml;
+
+    function addIoc() {
+      var inp = $("iocInput"); var v = (inp.value || "").trim(); if (!v) return;
+      if ((state.iocsFound || []).map(norm).indexOf(norm(v)) < 0) {
+        state.iocsFound.push(v); persist();
+        recordTimeline("Logged indicator: " + v);
+      }
+      renderIntel(); updateObjTrack();
+      var ni = $("iocInput"); if (ni) ni.focus();
+    }
+    $("iocAdd").addEventListener("click", addIoc);
+    $("iocInput").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addIoc(); } });
+    if ($("revealIntel")) $("revealIntel").addEventListener("click", function () {
+      state.intelRevealed = true; persist(); renderIntel(); toast("Confirmed intel revealed. This costs 5 points.");
+    });
+    $("panel-intel").querySelectorAll(".ioc.clickable").forEach(function (c) {
+      c.addEventListener("click", function () {
+        var v = c.getAttribute("data-ioc");
+        var inp = $("siemSearch"); if (inp) inp.value = v;
+        filters.q = String(v).toLowerCase();
+        gotoPanel("siem"); resumeLive();
+      });
+    });
   }
 
   // ---------- REPORT ----------
@@ -630,6 +787,12 @@
     L.push("## Indicators of Compromise");
     (scn.iocs || []).forEach(function (i) { L.push("- " + i.type + ": " + R(i.ref) + " (" + i.reputation + (i.mitre ? ", " + i.mitre : "") + ")"); });
     L.push("");
+    if ((state.iocsFound || []).length) {
+      L.push("## Indicators You Logged");
+      var accSet = acceptableSet();
+      state.iocsFound.forEach(function (v) { L.push("- " + v + (accSet[norm(v)] ? " (confirmed)" : " (unverified)")); });
+      L.push("");
+    }
     L.push("## Pinned Evidence");
     if (state.pinned.length) state.pinned.forEach(function (id) { var d = (state.pinnedData || {})[id] || {}; L.push("- " + (d.msg || id)); });
     else L.push("- _No evidence pinned._");
@@ -641,6 +804,12 @@
     L.push("## Analyst Notes");
     L.push(state.notes || "_Empty._");
     L.push("");
+    if (state.findings && (state.findings.containment || state.findings.rootCause)) {
+      L.push("## Your Findings");
+      if (state.findings.rootCause) L.push("- Root cause selected: " + state.findings.rootCause.label);
+      (state.findings.containment || []).forEach(function (o) { if (o) L.push("- Containment chosen: " + o.label); });
+      L.push("");
+    }
     L.push("## Recommended Remediation");
     (scn.answerKey.containment || []).forEach(function (c) { L.push("- " + c); });
     return L.join("\n");
@@ -674,54 +843,112 @@
     return { got: got, max: max };
   }
 
-  function openQuestions(after) {
+  function openSubmit() {
     var q = scn.questions || [];
-    var body = '<div class="eyebrow">Shift assessment</div><h2 class="hud" style="margin:4px 0 12px">Answer to close the shift</h2>';
+    var contain = isGrc ? [] : containmentOptions();
+    var rcs = isGrc ? [] : rootCauseOptions();
+    var body = '<div style="max-height:74vh;overflow:auto;padding-right:4px">';
+    body += '<div class="eyebrow">Close the shift</div><h2 class="hud" style="margin:4px 0 12px">Findings &amp; assessment</h2>';
+    if (!isGrc) {
+      body += '<div class="eyebrow" style="margin-top:6px">1 · Containment actions <span style="color:var(--ink-faint)">(select all that apply)</span></div>';
+      contain.forEach(function (o, i) { body += '<button class="opt" data-kind="contain" data-i="' + i + '" type="button">' + esc(o.label) + "</button>"; });
+      body += '<div class="eyebrow" style="margin-top:16px">2 · Root cause <span style="color:var(--ink-faint)">(pick one)</span></div>';
+      rcs.forEach(function (o, i) { body += '<button class="opt" data-kind="rc" data-i="' + i + '" type="button">' + esc(o.label) + "</button>"; });
+      body += '<div class="eyebrow" style="margin-top:16px">3 · Assessment questions</div>';
+    } else {
+      body += '<div class="eyebrow" style="margin-top:6px">Assessment questions</div>';
+    }
     q.forEach(function (item, qi) {
       body += '<div class="pbstep"><div class="q">' + (qi + 1) + ". " + esc(item.prompt) + (item.type === "multi" ? " <span style='color:var(--ink-faint);font-size:12px'>(select all)</span>" : "") + "</div>";
       item.options.forEach(function (opt, oi) {
-        body += '<button class="opt" data-q="' + item.id + '" data-o="' + oi + '" data-multi="' + (item.type === "multi") + '">' + esc(opt) + "</button>";
+        body += '<button class="opt" data-q="' + item.id + '" data-o="' + oi + '" data-multi="' + (item.type === "multi") + '" type="button">' + esc(opt) + "</button>";
       });
       body += "</div>";
     });
-    body += '<div class="btnrow" style="margin-top:12px"><button class="btn primary" id="qDone">Score my shift</button><button class="btn ghost" id="qCancel">Back</button></div>';
+    body += "</div>" +
+      '<div class="btnrow" style="margin-top:12px"><button class="btn primary" id="qDone" type="button">Score my shift</button><button class="btn ghost" id="qCancel" type="button">Back</button></div>';
     showModal(body);
-    var picks = {};
+
+    var containSel = {}, rcSel = null, picks = {};
     $("modalBox").querySelectorAll(".opt").forEach(function (b) {
       b.addEventListener("click", function () {
-        var qid = b.getAttribute("data-q"), oi = +b.getAttribute("data-o"), multi = b.getAttribute("data-multi") === "true";
-        if (multi) {
-          picks[qid] = picks[qid] || [];
-          var idx = picks[qid].indexOf(oi);
-          if (idx >= 0) { picks[qid].splice(idx, 1); b.classList.remove("sel"); }
-          else { picks[qid].push(oi); b.classList.add("sel"); }
-        } else {
-          picks[qid] = oi;
-          b.parentNode.querySelectorAll(".opt").forEach(function (x) { x.classList.remove("sel"); });
+        var kind = b.getAttribute("data-kind");
+        if (kind === "contain") {
+          var ci = b.getAttribute("data-i");
+          if (containSel[ci]) { delete containSel[ci]; b.classList.remove("sel"); } else { containSel[ci] = true; b.classList.add("sel"); }
+        } else if (kind === "rc") {
+          rcSel = +b.getAttribute("data-i");
+          $("modalBox").querySelectorAll('.opt[data-kind="rc"]').forEach(function (x) { x.classList.remove("sel"); });
           b.classList.add("sel");
+        } else if (b.hasAttribute("data-q")) {
+          var qid = b.getAttribute("data-q"), oi = +b.getAttribute("data-o"), multi = b.getAttribute("data-multi") === "true";
+          if (multi) {
+            picks[qid] = picks[qid] || [];
+            var idx = picks[qid].indexOf(oi);
+            if (idx >= 0) { picks[qid].splice(idx, 1); b.classList.remove("sel"); } else { picks[qid].push(oi); b.classList.add("sel"); }
+          } else {
+            picks[qid] = oi;
+            $("modalBox").querySelectorAll('.opt[data-q="' + qid + '"]').forEach(function (x) { x.classList.remove("sel"); });
+            b.classList.add("sel");
+          }
         }
       });
     });
     $("qCancel").addEventListener("click", closeModal);
     $("qDone").addEventListener("click", function () {
+      if (!isGrc) {
+        state.findings.containment = Object.keys(containSel).map(function (i) { return contain[+i]; });
+        state.findings.rootCause = (rcSel != null) ? rcs[rcSel] : null;
+      }
       Object.keys(picks).forEach(function (k) { state.answers[k] = picks[k]; });
-      persist(); closeModal(); after();
+      persist(); closeModal(); finishScore();
     });
   }
 
-  function doSubmit() { openQuestions(finishScore); }
+  function doSubmit() { openSubmit(); }
 
   function finishScore() {
     var gq = gradeQuestions(), gp = gradePlaybook();
-    var triage = state.pinned.length > 0 ? 10 : 0;
-    var irBonus = state.tickets.length > 0 ? 10 : 0;
-    var hintPenalty = state.hintsUsed * 5;
-    var rawMax = gq.max + gp.max + 20;
-    var rawGot = gq.got + gp.got + triage + irBonus - hintPenalty;
-    if (rawGot < 0) rawGot = 0;
-    var pct = Math.round(rawGot / rawMax * 100);
+    var parts = [{ k: "Questions", got: gq.got, max: gq.max }, { k: "Playbook", got: gp.got, max: gp.max }];
+    var got = gq.got + gp.got, max = gq.max + gp.max;
+
+    if (!isGrc) {
+      // Evidence: recall over distinct attacker behaviors, minus false positives.
+      var ev = evidenceProgress();
+      var keyPinned = 0, totalPinned = (state.pinned || []).length;
+      (state.pinned || []).forEach(function (id) { var d = (state.pinnedData || {})[id]; if (d && d.key) keyPinned++; });
+      var recall = ev.totalSigs ? ev.pinnedSigs / ev.totalSigs : 0;
+      var EVID_MAX = 20;
+      var evGot = Math.max(0, Math.round(EVID_MAX * recall) - 2 * (totalPinned - keyPinned));
+      got += evGot; max += EVID_MAX; parts.push({ k: "Evidence", got: evGot, max: EVID_MAX });
+
+      // Indicators identified (halved if the student revealed the intel).
+      var hasIoc = acceptableIOCs().length > 0;
+      if (hasIoc) {
+        var ic = iocProgress();
+        var IOC_MAX = 15;
+        var icGot = ic.total ? Math.round(IOC_MAX * ic.found / ic.total) : 0;
+        if (state.intelRevealed) icGot = Math.round(icGot * 0.5);
+        got += icGot; max += IOC_MAX; parts.push({ k: "Indicators", got: icGot, max: IOC_MAX });
+      }
+
+      // Findings: containment (proportional) + root cause.
+      var FIND_MAX = 20, findGot = 0;
+      var sel = (state.findings && state.findings.containment) || [];
+      var contCorrect = containmentOptions().filter(function (o) { return o.correct; }).length;
+      var selCorrect = sel.filter(function (o) { return o && o.correct; }).length;
+      var selWrong = sel.filter(function (o) { return o && !o.correct; }).length;
+      var contScore = contCorrect ? Math.max(0, (selCorrect - selWrong) / contCorrect) : 0;
+      findGot += Math.round(12 * contScore);
+      if (state.findings && state.findings.rootCause && state.findings.rootCause.correct) findGot += 8;
+      got += findGot; max += FIND_MAX; parts.push({ k: "Findings", got: findGot, max: FIND_MAX });
+    }
+
+    var hintPenalty = state.hintsUsed * 5 + (state.intelRevealed ? 5 : 0);
+    got = Math.max(0, got - hintPenalty);
+    var pct = max ? Math.round(got / max * 100) : 0;
     state.score = pct; state.status = "submitted"; persist();
-    $("mScore").textContent = pct;
+    $("mScore").textContent = pct; updateObjTrack();
 
     // feed gamification and capture any newly earned badges
     var gam = SOC.gam ? SOC.gam.completeScenario(scn.id, pct) : { newBadges: [] };
@@ -742,8 +969,8 @@
         '<div class="hud" style="font-size:45px;color:var(--cyan)">' + pct + "%</div>" +
         '<div class="scorebar" style="margin:6px 0 14px"><i style="width:' + pct + '%"></i></div>' +
         '<div style="display:flex;gap:14px;flex-wrap:wrap;color:var(--ink-dim);font-size:13px;margin-bottom:10px">' +
-          "<span>Questions " + gq.got + "/" + gq.max + "</span><span>Playbook " + gp.got + "/" + gp.max + "</span>" +
-          "<span>Triage +" + triage + "</span><span>IR +" + irBonus + "</span><span>Hints -" + hintPenalty + "</span></div>" +
+          parts.map(function (p) { return "<span>" + p.k + " " + p.got + "/" + p.max + "</span>"; }).join("") +
+          (hintPenalty ? "<span>Hints/Reveal -" + hintPenalty + "</span>" : "") + "</div>" +
         fb +
         badgeHtml +
         '<div class="eyebrow" style="margin-top:12px">Lesson</div><p style="color:var(--ink-dim)">' + esc(scn.debrief) + "</p>" +
@@ -781,8 +1008,8 @@
       b.addEventListener("click", function () { gotoPanel(b.getAttribute("data-panel")); });
     });
     document.addEventListener("click", function (e) {
-      var g = e.target.getAttribute && e.target.getAttribute("data-goto");
-      if (g) gotoPanel(g);
+      var t = e.target.closest ? e.target.closest("[data-goto]") : null;
+      if (t) gotoPanel(t.getAttribute("data-goto"));
     });
   }
   function gotoPanel(name) {

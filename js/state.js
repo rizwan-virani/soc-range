@@ -57,6 +57,9 @@
       notes: "",
       playbook: {},
       answers: {},
+      iocsFound: [],
+      findings: {},
+      intelRevealed: false,
       hintsUsed: 0,
       score: null
     };
