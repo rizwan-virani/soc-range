@@ -63,6 +63,38 @@
     $("ctfBar").style.width = Math.round(pts / total * 100) + "%";
   }
 
+  // ---- Analysis workbench: decode/transform artifacts in-app (Phase 2) ----
+  function wbTransform(kind, s) {
+    s = s == null ? "" : s;
+    try {
+      if (kind === "b64") return atob(s.trim().replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, ""));
+      if (kind === "hex") return (s.replace(/0x/gi, "").replace(/[^0-9a-fA-F]/g, "").match(/.{1,2}/g) || []).map(function (h) { return String.fromCharCode(parseInt(h, 16)); }).join("");
+      if (kind === "rot13") return s.replace(/[a-zA-Z]/g, function (ch) { var b = ch <= "Z" ? 65 : 97; return String.fromCharCode((ch.charCodeAt(0) - b + 13) % 26 + b); });
+      if (kind === "rotall") { var out = []; for (var n = 1; n < 26; n++) out.push("ROT" + n + ":  " + s.replace(/[a-zA-Z]/g, function (ch) { var b = ch <= "Z" ? 65 : 97; return String.fromCharCode((ch.charCodeAt(0) - b + n) % 26 + b); })); return out.join("\n"); }
+      if (kind === "url") return decodeURIComponent(s.trim());
+      if (kind === "bin") {
+        if (/\s/.test(s.trim()) && s.trim().split(/\s+/).every(function (x) { return /^[01]+$/.test(x); }))
+          return s.trim().split(/\s+/).map(function (b) { return String.fromCharCode(parseInt(b, 2)); }).join("");
+        return ((s.replace(/[^01]/g, "")).match(/.{1,8}/g) || []).map(function (b) { return String.fromCharCode(parseInt(b, 2)); }).join("");
+      }
+      if (kind === "dec") return s.trim().split(/[\s,]+/).filter(Boolean).map(function (d) { return String.fromCharCode(parseInt(d, 10)); }).join("");
+      if (kind === "rev") return s.split("").reverse().join("");
+    } catch (e) { return "[could not decode as " + kind + ": " + e.message + "]"; }
+    return s;
+  }
+  function wbBtn(k, label) { return '<button class="btn" data-wb="' + k + '" style="padding:6px 10px;font-size:12px" type="button">' + label + "</button>"; }
+  function wbHtml() {
+    return '<details class="card" style="margin-top:12px" open><summary class="eyebrow" style="cursor:pointer">Analysis workbench · decode here, no external tools needed</summary>' +
+      '<p style="color:var(--ink-faint);font-size:12px;margin:8px 0">Load the artifact or paste text, then apply a transform. Chain transforms by editing the input.</p>' +
+      '<textarea id="wbIn" class="notes" style="min-height:64px" placeholder="Paste text to analyze, or click Load artifact"></textarea>' +
+      '<div class="btnrow" style="margin:8px 0">' +
+        wbBtn("load", "Load artifact") + wbBtn("b64", "Base64 →") + wbBtn("hex", "Hex →") +
+        wbBtn("rot13", "ROT13") + wbBtn("rotall", "ROT all 25") + wbBtn("url", "URL-decode") +
+        wbBtn("bin", "Binary →") + wbBtn("dec", "Decimal →") + wbBtn("rev", "Reverse") +
+      "</div>" +
+      '<pre id="wbOut" class="report mono" style="max-height:24vh;min-height:34px;margin:0"></pre></details>';
+  }
+
   var hintState = {};
   function openChallenge(c) {
     var solved = isSolved(c.id);
@@ -76,7 +108,7 @@
       '<pre class="report mono" style="max-height:30vh">' + esc(art) + "</pre>" +
       '<div class="btnrow" style="margin:10px 0"><button class="btn ghost" id="ctfHint">Hint (-' + Math.round(c.points * 0.2) + ' pts)</button>' +
       '<button class="btn ghost" id="ctfCopy">Copy artifact</button></div>' +
-      '<div id="ctfHints" style="color:var(--amber);font-size:15px"></div>';
+      '<div id="ctfHints" style="color:var(--amber);font-size:15px"></div>' + wbHtml();
     if (solved) {
       body += '<div class="card" style="margin-top:10px;border-color:var(--low)"><b class="hud" style="color:var(--low)">Captured</b>' +
         '<p style="color:var(--ink-dim);margin:6px 0 0">' + esc(c.explain) + "</p></div>";
@@ -101,6 +133,18 @@
     });
     if ($("ctfCopy")) $("ctfCopy").addEventListener("click", function () { navigator.clipboard.writeText(art).then(function () { toast("Artifact copied"); }); });
     $("ctfClose").addEventListener("click", closeModal);
+
+    // Wire the analysis workbench.
+    var wbIn = $("wbIn"), wbOut = $("wbOut");
+    if (wbIn && wbOut) {
+      $("modalBox").querySelectorAll("[data-wb]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var k = b.getAttribute("data-wb");
+          if (k === "load") { wbIn.value = art; wbIn.focus(); return; }
+          wbOut.textContent = wbTransform(k, wbIn.value);
+        });
+      });
+    }
 
     if (!solved) {
       var submit = function () {

@@ -71,7 +71,9 @@
         '<span class="chip" style="cursor:default">' + esc(b.tier) + "</span></div>" +
         '<p style="color:var(--ink-dim);margin:8px 0 0;font-size:15px">' + esc(b.intro) + "</p></div>";
     }).join("");
-    screen.innerHTML = '<div class="eyebrow" style="margin-bottom:8px">Choose an incident</div>' + items +
+    screen.innerHTML =
+      '<div class="callout"><span class="lbl">How this works</span><p>You are dropped into a live incident as a branching decision tree. Every choice runs against a countdown timer and shifts your score. Decide fast and well. If the timer runs out, the slow, hesitant path is taken for you and the attacker escalates. You finish with a letter grade and a post-incident review, and you can replay to improve.</p></div>' +
+      '<div class="eyebrow" style="margin-bottom:8px">Choose an incident</div>' + items +
       '<p style="color:var(--ink-faint);font-size:13px;margin-top:14px">Each decision has a timer. If it runs out, the slow path is taken for you, and the incident gets worse.</p>';
     Array.prototype.forEach.call(screen.querySelectorAll(".lr-pick"), function (el) {
       el.addEventListener("click", function () { start(el.getAttribute("data-id")); });
@@ -80,7 +82,7 @@
 
   function start(id) {
     var tree = SOC.branch.byScenario(id);
-    state = { id: id, tree: tree, nodeId: tree.start, score: tree.base || 70 };
+    state = { id: id, tree: tree, nodeId: tree.start, score: tree.base || 70, path: [] };
     renderNode();
   }
 
@@ -120,10 +122,13 @@
 
   function choose(optId, timedOut) {
     clearTimer();
+    var curNode = state.tree.nodes[state.nodeId];
+    var opt = ((curNode && curNode.options) || []).filter(function (o) { return o.id === optId; })[0];
     var r = SOC.branch.resolve(state.tree, state.nodeId, optId);
     if (!r) return;
     state.score += r.delta;
     var note = (timedOut ? "You hesitated. " : "") + (r.note || "");
+    (state.path = state.path || []).push({ label: (opt ? opt.label : optId), note: note, delta: r.delta, timedOut: !!timedOut });
     if (r.isEnding) renderEnding(r.nextId, note);
     else { state.nodeId = r.nextId; renderNode(); flash(note); }
   }
@@ -141,6 +146,18 @@
     var g = SOC.branch.grade(state.score);
     var xp = Math.max(0, state.score - 40);
     if (SOC.gam) SOC.gam.captureFlag("response:" + state.id, xp);
+    var pathHtml = '<div class="lr-card" style="margin-top:12px"><div class="eyebrow">Your decision path</div>' +
+      (state.path || []).map(function (p, i) {
+        var col = p.delta >= 0 ? "var(--low)" : "var(--crit)";
+        return '<div style="border-left:2px solid ' + col + ';padding:5px 0 5px 12px;margin:9px 0">' +
+          '<b style="color:var(--ink)">' + (i + 1) + ". " + esc(p.label) + '</b> <span class="mono" style="color:' + col + '">' + (p.delta >= 0 ? "+" : "") + p.delta + "</span>" +
+          (p.note ? '<div style="color:var(--ink-dim);font-size:13px;margin-top:2px">' + esc(p.note) + "</div>" : "") + "</div>";
+      }).join("") + "</div>";
+    var reviewHtml = '<div class="lr-card" style="margin-top:12px"><div class="eyebrow">Post-incident review</div>' +
+      '<p style="color:var(--ink-dim);font-size:14px;margin:6px 0 10px">Before you replay, capture the lessons. This is exactly what a real post-incident review records, and it feeds your written deliverable. Saved to this browser as you type.</p>' +
+      '<div class="eyebrow" style="margin-top:6px">What went well</div><textarea class="notes" id="prWell" style="min-height:50px"></textarea>' +
+      '<div class="eyebrow" style="margin-top:8px">What you would do differently</div><textarea class="notes" id="prDiff" style="min-height:50px"></textarea>' +
+      '<div class="eyebrow" style="margin-top:8px">The single most important lesson</div><textarea class="notes" id="prLesson" style="min-height:40px"></textarea></div>';
     screen.innerHTML =
       '<div class="lr-card" style="text-align:center">' +
         '<div class="eyebrow">Outcome</div>' +
@@ -152,7 +169,14 @@
         '<div class="btnrow" style="justify-content:center;margin-top:14px">' +
           '<button class="btn primary" id="again">Play again</button>' +
           '<button class="btn" id="back">Other incidents</button></div>' +
-      "</div>";
+      "</div>" + pathHtml + reviewHtml;
+    // Persist the reflection per incident so it survives a replay.
+    var rk = "soc.lr.review." + state.id;
+    try { var saved = JSON.parse(localStorage.getItem(rk) || "{}"); ["prWell", "prDiff", "prLesson"].forEach(function (k) { if (document.getElementById(k) && saved[k]) document.getElementById(k).value = saved[k]; }); } catch (e) {}
+    ["prWell", "prDiff", "prLesson"].forEach(function (k) {
+      var ta = document.getElementById(k);
+      if (ta) ta.addEventListener("input", function () { try { var o = JSON.parse(localStorage.getItem(rk) || "{}"); o[k] = ta.value; localStorage.setItem(rk, JSON.stringify(o)); } catch (e) {} });
+    });
     document.getElementById("again").addEventListener("click", function () { start(state.id); });
     document.getElementById("back").addEventListener("click", menu);
   }

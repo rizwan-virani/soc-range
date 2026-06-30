@@ -150,7 +150,14 @@
   function select(id) {
     current = ds.byId(id);
     dataset = SOC.dataset.build(current.scenarioId, { noise: 90 });
-    $("actPrompt").innerHTML = "<b class='hud'>" + esc(current.title) + "</b><p style='color:var(--ink-dim);margin:6px 0 0'>" + esc(current.prompt) + "</p>";
+    var atk = dataset.records.filter(function (r) { return current.targets.indexOf(r._template) >= 0; }).length;
+    var tot = dataset.records.length;
+    $("actPrompt").innerHTML = "<b class='hud'>" + esc(current.title) + "</b>" +
+      "<p style='color:var(--ink-dim);margin:6px 0 0'>" + esc(current.prompt) + "</p>" +
+      "<div class='callout' style='margin:10px 0 0'><span class='lbl'>Dataset</span><p>" + esc(current.scenarioId) +
+      " replayed with benign noise. <b style='color:var(--ink)'>" + tot + "</b> events: <b style='color:var(--crit)'>" + atk +
+      "</b> malicious to catch, <b style='color:var(--low)'>" + (tot - atk) + "</b> benign to avoid. Catch all " + atk +
+      " without firing on the benign traffic.</p></div>";
     var chips = dataset.fieldNames.filter(function (f) { return ["mitre"].indexOf(f) < 0; });
     $("fieldChips").innerHTML = chips.map(function (f) { return '<span class="chip mono">' + esc(f) + "</span>"; }).join("");
     $("ruleEd").value = starter();
@@ -218,7 +225,7 @@
   });
   $("btnSol").addEventListener("click", function () {
     $("ruleEd").value = current.solution; showResult(false);
-    $("verdict").innerHTML = '<div class="verdict partial">Reference rule loaded. Study why it is specific, then try your own next time.</div>';
+    $("verdict").innerHTML = '<div class="verdict partial"><b>Reference rule loaded.</b> ' + esc(current.explain) + ' Study why it is specific, then write your own next time.</div>';
   });
   $("btnClear").addEventListener("click", function () {
     $("ruleEd").value = starter();
