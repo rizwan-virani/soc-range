@@ -234,8 +234,8 @@ a { color: var(--cyan); text-decoration: none; }
   margin: 14px 0; border: 1px solid var(--line); border-left: 3px solid var(--cyan);
   border-radius: 0 10px 10px 0; padding: 13px 16px; background: rgba(53,213,230,.05);
 }
-.callout .lbl { font-family: var(--f-hud); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); display: block; margin-bottom: 5px; }
-.callout p { margin: 0; color: var(--ink-dim); font-size: 14.5px; line-height: 1.6; }
+.callout .lbl { font-family: var(--f-hud); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); display: block; margin-bottom: 5px; }
+.callout p { margin: 0; color: var(--ink-dim); font-size: 16.5px; line-height: 1.6; }
 .callout.amber { border-left-color: var(--amber); background: rgba(255,180,84,.06); }
 .callout.amber .lbl { color: var(--amber); }
 .callout.green { border-left-color: var(--low); background: rgba(70,209,138,.05); }
@@ -246,7 +246,7 @@ a { color: var(--cyan); text-decoration: none; }
 .studypath li {
   counter-increment: sp; position: relative; padding: 12px 14px 12px 54px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
-  color: var(--ink-dim); line-height: 1.5; font-size: 15px;
+  color: var(--ink-dim); line-height: 1.55; font-size: 16.5px;
 }
 .studypath li::before {
   content: counter(sp); position: absolute; left: 14px; top: 11px;
