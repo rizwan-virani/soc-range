@@ -209,11 +209,11 @@ a { color: var(--cyan); text-decoration: none; }
 /* hero lede + exam-style stat line */
 .hero .lede { color: var(--ink-dim); font-size: 20px; line-height: 1.62; max-width: none; }
 .examline {
-  font-family: var(--f-mono); color: var(--cyan); font-size: 12.5px; letter-spacing: .02em;
+  font-family: var(--f-mono); color: var(--cyan); font-size: 13.5px; letter-spacing: .02em;
   margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px 18px;
 }
 .examline b { color: var(--ink); }
-.hero .examline { max-width: none; font-size: 12.5px; }
+.hero .examline { max-width: none; font-size: 13.5px; }
 
 /* section head: family flex line + number, plus subhead */
 .secthead { display: flex; align-items: center; gap: 12px; }
