@@ -1,3 +1,21 @@
+SOC Range: Security Operations Center Training Platform
+CYBR 4350 Senior Project, San Jacinto College
+Copyright (c) 2026 Rizwan Virani
+
+This repository is dual-licensed: the software framework and interface code under
+the MIT License, and the educational simulation content (the scenario library, the
+log-generation engine, playbooks and SOPs, and the lab activities) under the
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+
+Product and technology names used in the simulation, including Splunk, Cisco,
+Microsoft, Windows, Microsoft Defender, Sysmon, PowerShell, Amazon Web Services,
+MITRE ATT&CK, and CompTIA CySA+, are trademarks of their respective owners and are
+used only to identify the tools and skills this resource teaches. NIST publications
+are U.S. government works in the public domain, and Sigma is an open detection-rule
+format. All scenarios, logs, and indicators are fictional and original.
+
+================================================================================
+
 The software framework and underlying interface code contained in this repository are licensed under the MIT License:
 
 Copyright (c) 2026 Rizwan Virani
