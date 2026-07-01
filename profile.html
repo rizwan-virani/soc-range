@@ -11,12 +11,13 @@
 <link rel="stylesheet" href="css/soc.css" />
 </head>
 <body>
-<div class="launch">
+<div class="shell">
   <div class="topbar">
     <a class="brand" href="index.html" title="Back to launcher">
       <div class="mark hud">S</div>
       <div><b class="hud">SOC RANGE</b><br /><small>CYBR 4350: SENIOR PROJECT · ANALYST PROFILE</small></div>
     </a>
+    <span class="spacer"></span>
     <a class="btn homebtn" href="index.html">Home</a>
   </div>
 
@@ -31,17 +32,35 @@
     <div class="grid3" style="flex:1;min-width:260px">
       <div class="kpi"><div class="v" id="pStreak">0</div><div class="k">Day streak</div></div>
       <div class="kpi alert"><div class="v" id="pScn">0</div><div class="k">Shifts done</div></div>
-      <div class="kpi"><div class="v" id="pFlags">0</div><div class="k">Flags</div></div>
+      <div class="kpi"><div class="v" id="pFlags">0</div><div class="k">CTF flags</div></div>
     </div>
   </div>
 
-  <div class="secthead">Badges</div>
+  <div class="secthead"><span class="n">00</span> Overall readiness</div>
+  <div class="card">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <div class="hud" id="pReady" style="font-size:44px;color:var(--cyan)">0%</div>
+      <div id="pReadyLabel" style="color:var(--ink-dim)"></div>
+    </div>
+    <div class="scorebar" style="margin:8px 0 4px"><i id="pReadyBar" style="width:0%"></i></div>
+    <p style="color:var(--ink-faint);font-size:12px;margin:6px 0 0">A composite of how many shifts you have completed, how well you scored, and your progress across the skill labs.</p>
+    <div class="eyebrow" style="margin-top:16px">Recommended next steps</div>
+    <div id="pRecs" style="margin-top:6px"></div>
+  </div>
+
+  <div class="secthead"><span class="n">01</span> Progress by tier</div>
+  <div class="card"><div id="pTiers"></div></div>
+
+  <div class="secthead"><span class="n">02</span> Skill labs</div>
+  <div class="card"><div id="pLabs"></div></div>
+
+  <div class="secthead"><span class="n">03</span> Badges</div>
   <div class="card"><div id="pBadges" class="grid4"></div></div>
 
-  <div class="secthead">Completed shifts</div>
+  <div class="secthead"><span class="n">04</span> Completed shifts</div>
   <div class="card"><div id="pScnList"></div></div>
 
-  <div class="secthead">CySA+ readiness</div>
+  <div class="secthead"><span class="n">05</span> CySA+ readiness</div>
   <div class="card"><div id="pCert"></div></div>
 
   <div class="btnrow" style="margin-top:20px">
@@ -59,43 +78,116 @@
 <script src="js/certs.data.js"></script>
 <script>
 (function () {
-  var G = self.SOC.gam, C = self.SOC.certs;
+  var G = self.SOC.gam, C = self.SOC.certs, S = self.SOC.scenarios;
   var p = G.touch();
   var name = (localStorage.getItem("soc.analyst") || "anon").trim();
   var rank = G.rankFor(p.xp), next = G.nextRank(p.xp);
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+  function flagsWith(pre) { return (p.flags || []).filter(function (f) { return f.indexOf(pre) === 0; }).length; }
 
-  document.getElementById("pName").textContent = name;
-  document.getElementById("pRank").textContent = rank.title;
-  document.getElementById("pStreak").textContent = p.streak.count || 0;
-  document.getElementById("pScn").textContent = Object.keys(p.scenarios).length;
-  document.getElementById("pFlags").textContent = p.flags.filter(function (f) { return f.indexOf("ctf-") === 0; }).length;
+  // ---- identity ----
+  $("pName").textContent = name;
+  $("pRank").textContent = rank.title;
+  $("pStreak").textContent = p.streak.count || 0;
+  var shiftIds = Object.keys(p.scenarios || {});
+  $("pScn").textContent = shiftIds.length;
+  var ctfDone = flagsWith("ctf-");
+  $("pFlags").textContent = ctfDone;
 
   var floor = rank.at, ceil = next ? next.at : rank.at;
-  var pct = next ? Math.round((p.xp - floor) / (ceil - floor) * 100) : 100;
-  document.getElementById("pXpBar").style.width = pct + "%";
-  document.getElementById("pXpText").textContent = p.xp + " XP" + (next ? " · " + (ceil - p.xp) + " to " + next.title : " · max rank");
+  var pctXp = next ? Math.round((p.xp - floor) / (ceil - floor) * 100) : 100;
+  $("pXpBar").style.width = pctXp + "%";
+  $("pXpText").textContent = p.xp + " XP" + (next ? " · " + (ceil - p.xp) + " to " + next.title : " · max rank");
 
-  document.getElementById("pBadges").innerHTML = G.BADGES.map(function (b) {
+  // ---- tiers ----
+  var TIERS = [
+    { k: "T1", label: "Tier 1 · Triage" }, { k: "T2", label: "Tier 2 · Incident Response" },
+    { k: "T3", label: "Tier 3 · Threat Hunting" }, { k: "AE", label: "Advanced &amp; Emerging" },
+    { k: "GRC", label: "Governance, Risk &amp; Compliance" }
+  ];
+  var tierStats = TIERS.map(function (t) {
+    var list = S.list.filter(function (s) { return s.tier === t.k; });
+    var done = list.filter(function (s) { return p.scenarios[s.id] != null; });
+    var avg = done.length ? Math.round(done.reduce(function (a, s) { return a + p.scenarios[s.id]; }, 0) / done.length) : 0;
+    return { k: t.k, label: t.label, total: list.length, done: done.length, avg: avg };
+  }).filter(function (t) { return t.total > 0; });
+
+  function bar(label, sub, doneN, totalN, extra) {
+    var pctb = totalN ? Math.round(doneN / totalN * 100) : 0;
+    return '<div class="rrow"><span class="rl">' + label + (sub ? '<span class="rs">' + sub + "</span>" : "") + "</span>" +
+      '<div class="scorebar"><i style="width:' + pctb + '%"></i></div>' +
+      '<span class="rp">' + doneN + " / " + totalN + (extra || "") + "</span></div>";
+  }
+  $("pTiers").innerHTML = tierStats.map(function (t) {
+    return bar(t.label, t.done ? "avg " + t.avg + "%" : "", t.done, t.total);
+  }).join("");
+
+  // ---- labs ----
+  var CTF_TOTAL = (self.SOC.ctf && self.SOC.ctf.length) || 20;
+  var labs = [
+    { label: "Detection Engineering Lab", done: flagsWith("detect:"), total: 10 },
+    { label: "Splunk Lab", done: flagsWith("splunk:"), total: 15 },
+    { label: "Capture the Flag Arena", done: ctfDone, total: CTF_TOTAL },
+    { label: "Live Response Simulator", done: flagsWith("response:"), total: 4 }
+  ];
+  $("pLabs").innerHTML = labs.map(function (l) { return bar(l.label, "", l.done, l.total); }).join("");
+
+  // ---- composite readiness ----
+  var totalShifts = S.list.length;
+  var avgAll = shiftIds.length ? Math.round(shiftIds.reduce(function (a, id) { return a + p.scenarios[id]; }, 0) / shiftIds.length) : 0;
+  var coverage = Math.min(1, shiftIds.length / 20);      // "enough reps" caps at 20 shifts
+  var readShift = shiftIds.length ? avgAll * (0.5 + 0.5 * coverage) : 0;
+  var labRatio = labs.reduce(function (a, l) { return a + (l.total ? l.done / l.total : 0); }, 0) / labs.length;
+  var readLab = labRatio * 100;
+  var overall = Math.round(0.6 * readShift + 0.4 * readLab);
+  var label = overall >= 80 ? "Exam-ready and operating like a senior analyst" :
+              overall >= 55 ? "Solid footing. Keep pushing into the harder tiers" :
+              overall >= 25 ? "Getting started. Build reps across tiers and labs" :
+              "Just beginning. Warm up in a lab, then run a Tier 1 shift";
+  $("pReady").textContent = overall + "%";
+  $("pReady").style.color = overall >= 80 ? "var(--low)" : overall >= 40 ? "var(--cyan)" : "var(--amber)";
+  $("pReadyLabel").textContent = label;
+  $("pReadyBar").style.width = overall + "%";
+
+  // ---- recommendations ----
+  var recs = [];
+  if (!shiftIds.length) recs.push({ t: "Run your first shift. Start with a <b>Tier 1 triage</b> incident to learn the workstation.", href: "soc.html", cta: "Open a shift" });
+  labs.forEach(function (l) { if (l.done === 0) recs.push({ t: "You have not started the <b>" + l.label + "</b>. It is the fastest way to build that skill.", href: l.label.indexOf("Detection") === 0 ? "detect.html" : l.label.indexOf("Splunk") === 0 ? "splunk.html" : l.label.indexOf("Capture") === 0 ? "ctf.html" : "response.html", cta: "Open lab" }); });
+  var weakTier = tierStats.slice().sort(function (a, b) { return (a.done / a.total) - (b.done / b.total); })[0];
+  if (shiftIds.length && weakTier && weakTier.done < weakTier.total) recs.push({ t: "Your weakest area is <b>" + weakTier.label + "</b> (" + weakTier.done + " of " + weakTier.total + " done). Take one on next.", href: "index.html", cta: "Pick a shift" });
+  if (avgAll && avgAll < 75 && shiftIds.length) recs.push({ t: "Your average shift score is <b>" + avgAll + "%</b>. Replay a shift and focus on pinning the right evidence and identifying every indicator.", href: "soc.html", cta: "Replay" });
+  if (!recs.length) recs.push({ t: "Strong work. Chase the badges you are missing and push every tier to 100%.", href: "index.html", cta: "Keep going" });
+  $("pRecs").innerHTML = recs.slice(0, 4).map(function (r) {
+    return '<div class="rec">' + r.t + ' <a href="' + r.href + '">' + r.cta + " ›</a></div>";
+  }).join("");
+
+  // ---- badges ----
+  $("pBadges").innerHTML = G.BADGES.map(function (b) {
     var earned = p.badges.indexOf(b.id) >= 0;
     return '<div class="kpi" style="text-align:center;opacity:' + (earned ? 1 : .35) + '">' +
       '<div class="v" style="font-size:29px;color:' + (earned ? "var(--cyan)" : "var(--ink-faint)") + '">' + b.icon + "</div>" +
       '<div class="k">' + b.name + "</div></div>";
   }).join("");
 
-  var scnList = self.SOC.scenarios.byId;
-  var done = Object.keys(p.scenarios);
-  document.getElementById("pScnList").innerHTML = done.length ? done.map(function (id) {
-    var s = scnList[id];
+  // ---- completed shifts ----
+  $("pScnList").innerHTML = shiftIds.length ? shiftIds.map(function (id) {
+    var s = S.byId[id];
     return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)"><span>' +
-      (s ? s.title : id) + ' <span class="mono" style="color:var(--ink-faint);font-size:12px">' + id + "</span></span>" +
+      esc(s ? s.title : id) + ' <span class="mono" style="color:var(--ink-faint);font-size:12px">' + esc(id) + "</span></span>" +
       '<b class="hud" style="color:var(--cyan)">' + p.scenarios[id] + "%</b></div>";
   }).join("") : '<span style="color:var(--ink-faint)">No shifts completed yet.</span>';
 
-  var R = C.readiness(p, self.SOC.scenarios.list, self.SOC.ctf);
-  document.getElementById("pCert").innerHTML =
-    '<div style="display:flex;align-items:baseline;gap:10px"><div class="hud" style="font-size:34px;color:var(--cyan)">' + R.overall + '%</div><span style="color:var(--ink-dim)">weighted CySA+ V4 readiness</span></div>' +
-    '<div class="scorebar" style="margin-top:6px"><i style="width:' + R.overall + '%"></i></div>' +
-    '<a class="btn" style="margin-top:12px;display:inline-block" href="certs.html">See domain breakdown</a>';
+  // ---- CySA+ readiness ----
+  try {
+    var R = C.readiness(p, S.list, self.SOC.ctf);
+    $("pCert").innerHTML =
+      '<div style="display:flex;align-items:baseline;gap:10px"><div class="hud" style="font-size:34px;color:var(--cyan)">' + R.overall + '%</div><span style="color:var(--ink-dim)">weighted CySA+ V4 readiness</span></div>' +
+      '<div class="scorebar" style="margin-top:6px"><i style="width:' + R.overall + '%"></i></div>' +
+      '<a class="btn" style="margin-top:12px;display:inline-block" href="certs.html">See domain breakdown</a>';
+  } catch (e) {
+    $("pCert").innerHTML = '<a class="btn" href="certs.html">Open CySA+ readiness</a>';
+  }
 })();
 </script>
 <div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:20px 0 30px">SOC Range · CYBR 4350: Senior Project · Designed and authored by Professor Rizwan Virani, San Jacinto College</div>

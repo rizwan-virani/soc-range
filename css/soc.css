@@ -306,6 +306,20 @@ a { color: var(--cyan); text-decoration: none; }
 .ioc.clickable { cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
 .ioc.clickable:hover { border-color: var(--cyan); transform: translateY(-2px); }
 
+/* ============================================================
+   READINESS ANALYTICS (Phase 3) :: labeled progress bars
+   ============================================================ */
+.rrow { display: grid; grid-template-columns: 190px 1fr 92px; gap: 12px; align-items: center; margin: 9px 0; }
+@media (max-width: 620px) { .rrow { grid-template-columns: 1fr; gap: 3px; } }
+.rrow .rl { color: var(--ink); font-size: 14px; }
+.rrow .rl .rs { color: var(--ink-faint); font-size: 12px; font-family: var(--f-mono); margin-left: 6px; }
+.rrow .rp { font-family: var(--f-mono); font-size: 13px; text-align: right; color: var(--ink-dim); }
+.rrow .scorebar { margin: 0; }
+.rec { border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 0 9px 9px 0;
+  padding: 10px 14px; margin: 8px 0; background: rgba(255,180,84,.05); color: var(--ink-dim); font-size: 14px; }
+.rec b { color: var(--ink); }
+.rec a { font-family: var(--f-hud); font-size: 12px; letter-spacing: .04em; }
+
 /* severity dots + rails */
 .sev { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .s-info { background: var(--info); } .s-low { background: var(--low); }
